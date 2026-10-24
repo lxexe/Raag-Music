@@ -2,6 +2,14 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Automatic signed draft releases — 24 October 2026
+
+- Added Signed release workflow for version tags and manual runs against an existing tag. It checks tag/version equality and ancestry on main, audits/exports source, runs unit tests/lint/release assembly, checks the selected dependency inventory, signs/verifies the APK with Actions Secrets and creates a draft GitHub Release with source, inventories and checksums. Pull requests do not trigger this workflow.
+- Added one-time local secret setup helper and environment-based signing helper. The setup creates a key only if the selected path does not exist; users must preserve/reuse their production signing identity. Signing keys are decoded only into a temporary directory and removed on exit; Firebase client configuration is removed at job completion. No production key was generated or uploaded during implementation.
+- Twelve Python tests pass, including matching/mismatched versions, invalid tags and ambiguous version rejection. Shell syntax, workflow YAML parsing, public source audit and whitespace checks pass.
+- Exercised the actual signing helper against the existing release APK with a temporary test key: signature/certificate and alignment verification passed; wrong password failed without producing an APK. Test key removed afterward. No application source changed, so full Android builds were not repeated.
+- Automation and the refreshed ZIP are prepared locally. A hosted signed release still requires one-time repository secrets and a pushed tag. Draft publishing remains manual for device testing and corresponding dependency source review; existing published assets cannot be overwritten by this workflow. It does not add an app updater.
+
 ## Final dependency PR validation — 24 October 2026
 
 - Synced the merged public workflow actions, Gradle wrapper 9.8.2 and UI Automator 2.4.0 into the development snapshot. Applied Google Services plugin 4.5.0 and test-only JSON 20260814 together, matching the final two dependency PRs.

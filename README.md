@@ -68,3 +68,5 @@ Listening Insights stay on the device. Optional Firebase builds enable basic usa
 Original source is **GPL-3.0-or-later**. See [LICENSE](LICENSE), [NOTICE](NOTICE) and [third-party notices](THIRD_PARTY_NOTICES.md). NewPipeExtractor uses GPL-3.0-or-later; the font retains its SIL Open Font License. Bundled legal/privacy documents are available offline in **Settings → About Raag Music**.
 
 External recordings, lyrics, artwork and provider brands are not licensed by this repository. Raag Music is independent of Google/YouTube. Use media only with the necessary permission.
+
+Signed APK releases can be prepared automatically from version tags using GitHub Actions. See [one-time release setup and usage](docs/RELEASING.md#automatic-signed-github-releases).

@@ -1,0 +1,132 @@
+name: Signed release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v1.24.4'
+        required: true
+        type: string
+      firebase:
+        description: 'Include basic usage statistics (Firebase)'
+        default: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      FIREBASE_ENABLED: ${{ (github.event_name == 'push' && vars.RELEASE_FIREBASE != 'false') || (github.event_name == 'workflow_dispatch' && inputs.firebase) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag and source
+        id: metadata
+        run: |
+          git show-ref --verify "refs/tags/$RELEASE_TAG"
+          git merge-base --is-ancestor HEAD origin/main
+          python3 scripts/release_metadata.py "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          python3 scripts/public_source.py
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          python3 scripts/export_source.py
+      - name: Check signing secrets
+        env:
+          RAAG_KEYSTORE_BASE64: ${{ secrets.RAAG_KEYSTORE_BASE64 }}
+          RAAG_KEYSTORE_PASSWORD: ${{ secrets.RAAG_KEYSTORE_PASSWORD }}
+          RAAG_KEY_ALIAS: ${{ secrets.RAAG_KEY_ALIAS }}
+        run: |
+          test -n "$RAAG_KEYSTORE_BASE64" || { echo 'Missing RAAG_KEYSTORE_BASE64 secret'; exit 1; }
+          test -n "$RAAG_KEYSTORE_PASSWORD" || { echo 'Missing RAAG_KEYSTORE_PASSWORD secret'; exit 1; }
+          test -n "$RAAG_KEY_ALIAS" || { echo 'Missing RAAG_KEY_ALIAS secret'; exit 1; }
+      - uses: gradle/actions/wrapper-validation@v6
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      - name: Configure optional Firebase
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [[ "$FIREBASE_ENABLED" == 'true' ]]; then
+            test -n "$GOOGLE_SERVICES_JSON_BASE64" || { echo 'Missing GOOGLE_SERVICES_JSON_BASE64 secret'; exit 1; }
+            umask 077
+            printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+            echo 'FIREBASE_ARG=-PfirebaseAnalytics=true' >> "$GITHUB_ENV"
+          fi
+      - name: Build, test, lint and verify inventory
+        run: |
+          ./gradlew ${FIREBASE_ARG:-} :app:assembleRelease :app:testDebugUnitTest :app:lintDebug
+          ./gradlew ${FIREBASE_ARG:-} -I scripts/runtime_inventory.init.gradle :app:writeRuntimeInventory
+          git diff --exit-code -- LICENSES/runtime-dependencies.json LICENSES/runtime-dependencies-firebase.json
+      - name: Sign and verify APK
+        env:
+          RAAG_KEYSTORE_BASE64: ${{ secrets.RAAG_KEYSTORE_BASE64 }}
+          RAAG_KEYSTORE_PASSWORD: ${{ secrets.RAAG_KEYSTORE_PASSWORD }}
+          RAAG_KEY_ALIAS: ${{ secrets.RAAG_KEY_ALIAS }}
+          RAAG_KEY_PASSWORD: ${{ secrets.RAAG_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          bash scripts/sign_release.sh \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            "dist/Raag-Music-${RELEASE_VERSION}.apk" \
+            "$ANDROID_HOME/build-tools/36.0.0"
+      - name: Prepare release notes and checksums
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          cp LICENSES/runtime-dependencies*.json dist/
+          (cd dist && sha256sum ./*.apk ./*.zip ./*.json > SHA256SUMS.txt)
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES
+          Raag Music ${RELEASE_VERSION}
+
+          Install Raag-Music-${RELEASE_VERSION}.apk on Android 8.0 or newer.
+          Firebase basic usage statistics included: ${FIREBASE_ENABLED}.
+          Verify downloads using SHA256SUMS.txt. Source and dependency inventories are attached.
+
+          Maintainer: test this signed APK on a device and review CHANGELOG.md before publishing.
+          Attach exact corresponding sources for copyleft dependencies (including NewPipeExtractor,
+          Rhino and applicable desugaring sources), or provide a compliant source-access mechanism
+          as described in docs/RELEASING.md. The app source ZIP alone does not cover dependency sources.
+          EOF_NOTES
+      - name: Upload signed release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-release-${{ steps.metadata.outputs.version }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Refuse to overwrite an existing release, especially a published one.
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo 'A release already exists for this tag. Download the run artifacts to review; existing assets were not overwritten.'
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" dist/*.apk dist/*.zip dist/*.json dist/SHA256SUMS.txt \
+            --verify-tag --draft --title "Raag Music ${RELEASE_TAG#v}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+      - name: Remove private build inputs
+        if: always()
+        run: rm -f app/google-services.json
