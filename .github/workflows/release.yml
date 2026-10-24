@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing version tag, for example v1.24.4'
+        description: 'Existing version tag, for example v1.24.6'
         required: true
         type: string
       firebase:

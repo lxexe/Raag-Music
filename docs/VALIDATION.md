@@ -2,6 +2,11 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Release version correction — 1.24.6 (37)
+
+- Hosted run 40100527795 stopped before build/signing: tag v1.24.5 pointed to Android versionName 1.24.4. Prepared fresh version 1.24.6 with incremented versionCode 37, avoiding replacement of existing tags.
+- Release metadata validation now passes for v1.24.6. Python tests, source audit, YAML parsing and whitespace checks pass; source ZIP refreshed. This changes version metadata and documentation only; full Android validation above remains historical for the prior version. Hosted signed release execution is still required after committing and tagging the correction.
+
 ## Automatic signed draft releases — 24 October 2026
 
 - Added Signed release workflow for version tags and manual runs against an existing tag. It checks tag/version equality and ancestry on main, audits/exports source, runs unit tests/lint/release assembly, checks the selected dependency inventory, signs/verifies the APK with Actions Secrets and creates a draft GitHub Release with source, inventories and checksums. Pull requests do not trigger this workflow.

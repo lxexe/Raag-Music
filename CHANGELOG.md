@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.24.6 — automated signed releases
+
+- Prepare matching Android version metadata for the signed release workflow (version code 37).
+- Include reviewed dependency updates, separate analytics settings, and automatic signed draft release preparation.
+- Skip the existing v1.24.5 tag, which pointed to version 1.24.4 and failed validation before building.
+
 ## 1.24.4 — separate analytics settings
 
 - Enable basic usage reporting by default on new Firebase installations while preserving existing opt-outs.
