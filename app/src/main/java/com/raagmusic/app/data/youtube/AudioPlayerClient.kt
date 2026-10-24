@@ -23,10 +23,15 @@ internal class AudioPlayerClient(directory: java.io.File? = null) {
             "X-Goog-Api-Format-Version" to listOf("2"))
         val now = System.nanoTime() / 1_000_000
         var restored = false
-        fun freshVisitor(): String = YoutubeParsingHelper.getVisitorDataFromInnertube(client, localization, contentCountry,
-            headers, YoutubeParsingHelper.YOUTUBEI_V1_URL, null, false).also { sessions.write(country, it) }
+        var reused = visitor != null && visitorCountry == country && now - createdAt in 0 until AudioSessionStore.LIFETIME_MS
+        fun freshVisitor(): String {
+            client.clientInfo.visitorData = null
+            return YoutubeParsingHelper.getVisitorDataFromInnertube(client, localization, contentCountry,
+                headers, YoutubeParsingHelper.YOUTUBEI_V1_URL, null, false).also { sessions.write(country, it) }
+        }
         if (visitor == null || visitorCountry != country || now - createdAt !in 0 until AudioSessionStore.LIFETIME_MS) {
             val stored = sessions.readSession(country)
+            reused = stored != null
             visitor = stored?.first?.also { restored = true } ?: freshVisitor()
             visitorCountry = country; createdAt = now - (AudioSessionStore.LIFETIME_MS - (stored?.second ?: AudioSessionStore.LIFETIME_MS))
         }
@@ -38,15 +43,26 @@ internal class AudioPlayerClient(directory: java.io.File? = null) {
                 YoutubeParsingHelper.YOUTUBEI_V1_GAPIS_URL + "player?prettyPrint=false&t=" + YoutubeParsingHelper.generateTParameter() + "&id=" + id,
                 headers, body.toByteArray(Charsets.UTF_8), localization))
         }
-        val response = request()
-        if (restored && org.json.JSONObject(response).optJSONObject("playabilityStatus")?.optString("status") == "LOGIN_REQUIRED") {
-            // A rejected restored session gets one fresh context under the same outer deadline.
-            sessions.clear(); visitor = freshVisitor()
-            return request()
+        var response = request()
+        if (reused && org.json.JSONObject(response).optJSONObject("playabilityStatus")?.optString("status") == "LOGIN_REQUIRED") {
+            // A rejected disk OR in-memory session gets one fresh context under the outer deadline.
+            reset()
+            visitor = freshVisitor(); visitorCountry = country; createdAt = now
+            response = request()
+        }
+        if (nativeVerificationRequired(response)) {
+            // Do not persist a rejected context or fan out into more watch-page requests.
+            reset()
+            throw YoutubeVerificationRequiredException()
         }
         if (restored) com.raagmusic.app.playback.PlaybackTrace.mark(id, "native_session_reused")
         return response
     }
 
-    fun reset() { visitor = null; sessions.clear() }
+    fun reset() { visitor = null; visitorCountry = null; createdAt = 0; sessions.clear() }
+}
+
+internal fun nativeVerificationRequired(response: String): Boolean {
+    val status = org.json.JSONObject(response).optJSONObject("playabilityStatus") ?: return false
+    return status.optString("status") == "LOGIN_REQUIRED" && status.toString().contains("not a bot", ignoreCase = true)
 }

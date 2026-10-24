@@ -33,8 +33,8 @@ A base64 keystore must fit GitHub's 48 KB secret limit. The helper does not crea
 2. Push a matching tag. For the current app version:
 
 ```sh
-git tag v1.24.7
-git push origin v1.24.7
+git tag v1.24.8
+git push origin v1.24.8
 ```
 
 3. Open **Actions → Signed release** to follow progress. Once it finishes, open **Releases**, download/test the draft APK, attach corresponding dependency sources or provide the required source-access mechanism, edit the notes, and click **Publish release**.

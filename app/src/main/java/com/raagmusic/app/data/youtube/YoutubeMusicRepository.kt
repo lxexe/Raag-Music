@@ -225,7 +225,8 @@ class YoutubeMusicRepository(
         try {
             retryApiOnce(shouldRetry = { error ->
                 generateSequence<Throwable>(error) { it.cause }.take(8).none {
-                    it is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException ||
+                    it is YoutubeVerificationRequiredException ||
+                        it is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException ||
                         it is org.schabi.newpipe.extractor.exceptions.ReCaptchaException ||
                         it is org.schabi.newpipe.extractor.exceptions.SignInConfirmNotBotException ||
                         it is IllegalArgumentException || it is AudioUnavailableException
@@ -241,5 +242,8 @@ class YoutubeMusicRepository(
 }
 
 open class YoutubeExtractionException(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+class YoutubeVerificationRequiredException(cause: Throwable? = null) : YoutubeExtractionException(
+    "YouTube requires verification on this connection. Try another network, or wait before trying again.", cause)
 
 class AudioUnavailableException : YoutubeExtractionException("No supported audio stream is available for this song.")

@@ -17,6 +17,8 @@ class AudioPlayerClientTest {
             override fun execute(request: Request): Response {
                 val stage = request.url().substringBefore('?').substringAfterLast('/')
                 calls += stage
+                if (stage == "visitor_id") assertFalse("Fresh visitor requests must not carry a rejected visitor",
+                    request.dataToSend()?.toString(Charsets.UTF_8).orEmpty().contains("fixture-visitor"))
                 val body = if (stage == "visitor_id") """{"responseContext":{"visitorData":"fixture-visitor"}}"""
                     else if (rejectNext) { rejectNext = false; """{"playabilityStatus":{"status":"LOGIN_REQUIRED"},"videoDetails":{"videoId":"5NV6Rdv1a3I"}}""" }
                     else """{"playabilityStatus":{"status":"OK"},"videoDetails":{"videoId":"5NV6Rdv1a3I"}}"""
@@ -42,6 +44,8 @@ class AudioPlayerClientTest {
             override fun execute(request: Request): Response {
                 val stage = request.url().substringBefore('?').substringAfterLast('/')
                 calls += stage
+                if (stage == "visitor_id") assertFalse("Fresh visitor requests must not carry a rejected visitor",
+                    request.dataToSend()?.toString(Charsets.UTF_8).orEmpty().contains("fixture-visitor"))
                 if (stage == "player" && failPlayer) throw java.net.SocketTimeoutException("Transport stalled")
                 if (stage !in setOf("visitor_id", "player")) throw java.io.IOException("Full extractor reached")
                 val body = if (stage == "visitor_id") """{"responseContext":{"visitorData":"fixture-visitor"}}""" else
@@ -64,12 +68,81 @@ class AudioPlayerClientTest {
             assertEquals("Recovery refreshes the native session before resolving", listOf("visitor_id", "player"), calls.take(2))
         } finally { NewPipe.init(NewPipeDownloader(), Localization("en", "US")) }
     }
+    @Test fun rejectedInMemorySessionRefreshesOnceAndDoesNotReuseTheOldContext() {
+        val calls = mutableListOf<String>()
+        var rejectNext = false
+        NewPipe.init(object : Downloader() {
+            override fun execute(request: Request): Response {
+                val stage = request.url().substringBefore('?').substringAfterLast('/')
+                calls += stage
+                if (stage == "visitor_id") assertFalse("Fresh visitor requests must not carry a rejected visitor",
+                    request.dataToSend()?.toString(Charsets.UTF_8).orEmpty().contains("fixture-visitor"))
+                val body = if (stage == "visitor_id") """{"responseContext":{"visitorData":"fixture-visitor"}}"""
+                    else if (rejectNext) { rejectNext = false; """{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm you're not a bot"}}""" }
+                    else """{"playabilityStatus":{"status":"OK"},"videoDetails":{"videoId":"5NV6Rdv1a3I"}}"""
+                return Response(200, "OK", mapOf("Content-Type" to listOf("application/json")), body, request.url())
+            }
+        }, Localization("en", "US"))
+        try {
+            val client = AudioPlayerClient()
+            client.player("5NV6Rdv1a3I", "US", "nonce")
+            calls.clear(); rejectNext = true
+            client.player("dQw4w9WgXcQ", "US", "nonce2")
+            assertEquals(listOf("player", "visitor_id", "player"), calls)
+        } finally { NewPipe.init(NewPipeDownloader(), Localization("en", "US")) }
+    }
+    @Test fun persistentVerificationStopsWithoutFullExtractorFanoutAndClearsTheRejectedSession() {
+        val directory = java.nio.file.Files.createTempDirectory("blocked-session-test").toFile()
+        AudioSessionStore(directory).write("US", "fixture-visitor")
+        val calls = mutableListOf<String>()
+        val engine = NewPipeExtractionEngine(sessionDirectory = directory)
+        NewPipe.init(object : Downloader() {
+            override fun execute(request: Request): Response {
+                val stage = request.url().substringBefore('?').substringAfterLast('/')
+                calls += stage
+                if (stage == "visitor_id") assertFalse("Fresh visitor requests must not carry a rejected visitor",
+                    request.dataToSend()?.toString(Charsets.UTF_8).orEmpty().contains("fixture-visitor"))
+                val body = if (stage == "visitor_id") """{"responseContext":{"visitorData":"fixture-visitor"}}"""
+                    else """{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm you're not a bot"}}"""
+                return Response(200, "OK", mapOf("Content-Type" to listOf("application/json")), body, request.url())
+            }
+        }, Localization("en", "US"))
+        try {
+            assertThrows(YoutubeVerificationRequiredException::class.java) { engine.audioStream("5NV6Rdv1a3I", 0) }
+            assertEquals(listOf("player", "visitor_id", "player"), calls)
+            assertNull(AudioSessionStore(directory).read("US"))
+            calls.clear()
+            assertThrows(YoutubeVerificationRequiredException::class.java) { engine.videoStream("5NV6Rdv1a3I", 720) }
+            assertEquals(listOf("visitor_id", "player"), calls)
+        } finally { directory.deleteRecursively(); NewPipe.init(NewPipeDownloader(), Localization("en", "US")) }
+    }
+    @Test fun captchaChallengeDoesNotFanOutToOtherClients() {
+        val engine = NewPipeExtractionEngine()
+        val calls = mutableListOf<String>()
+        NewPipe.init(object : Downloader() {
+            override fun execute(request: Request): Response {
+                calls += request.url().substringBefore('?').substringAfterLast('/')
+                throw org.schabi.newpipe.extractor.exceptions.ReCaptchaException("Verification required", request.url())
+            }
+        }, Localization("en", "US"))
+        try {
+            assertThrows(YoutubeVerificationRequiredException::class.java) { engine.audioStream("5NV6Rdv1a3I", 0) }
+            assertEquals(listOf("visitor_id"), calls)
+        } finally { NewPipe.init(NewPipeDownloader(), Localization("en", "US")) }
+    }
+    @Test fun accountOrAgeRestrictionsAreNotMislabelledAsConnectionVerification() {
+        assertFalse(nativeVerificationRequired("""{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm your age"}}"""))
+        assertFalse(nativeVerificationRequired("""{"playabilityStatus":{"status":"UNPLAYABLE","reason":"Private video"}}"""))
+        assertTrue(nativeVerificationRequired("""{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Sign in to confirm you’re not a bot"}}"""))
+    }
     @Test fun reusesOnlyTheVisitorContextAndRefreshesItForRegionChanges() {
         val calls = mutableListOf<String>()
         val downloader = object : Downloader() {
             override fun execute(request: Request): Response {
                 val stage = request.url().substringBefore('?').substringAfterLast('/')
                 calls += stage
+                if (stage == "visitor_id") assertFalse("Fresh visitor requests must not carry a rejected visitor",
+                    request.dataToSend()?.toString(Charsets.UTF_8).orEmpty().contains("fixture-visitor"))
                 val body = if (stage == "visitor_id") """{"responseContext":{"visitorData":"fixture-visitor"}}"""
                     else """{"playabilityStatus":{"status":"OK"},"videoDetails":{"videoId":"5NV6Rdv1a3I"}}"""
                 return Response(200, "OK", mapOf("Content-Type" to listOf("application/json")), body, request.url())

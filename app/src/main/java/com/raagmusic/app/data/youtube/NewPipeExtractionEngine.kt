@@ -298,7 +298,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
             audioPlayer.reset()
             // A slow/offline transport won't improve by adding eight more requests. Let the
             // repository's bounded network retry handle it; fallback is for incompatible data.
-            if (e is java.io.IOException) throw e
+            if (e is java.io.IOException || e is ReCaptchaException || e is SignInConfirmNotBotException) throw e
         }
         com.raagmusic.app.playback.PlaybackTrace.mark(trackId, "full_extractor_fallback")
         // Compatibility fallback for unsupported native responses and rejected stream clients.
@@ -331,7 +331,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
         } catch (e: Exception) {
             if (Thread.currentThread().isInterrupted) throw e
             audioPlayer.reset()
-            if (e is java.io.IOException) throw e
+            if (e is java.io.IOException || e is ReCaptchaException || e is SignInConfirmNotBotException) throw e
         }
         val extractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$trackId")
             .regional().also { it.fetchPage() }
@@ -352,9 +352,9 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
     private fun <T> withProviderErrors(block: () -> T): T = try {
         block()
     } catch (e: ReCaptchaException) {
-        throw YoutubeExtractionException("YouTube requested verification. Please try again later.", e)
+        throw YoutubeVerificationRequiredException(e)
     } catch (e: SignInConfirmNotBotException) {
-        throw YoutubeExtractionException("YouTube requires verification for this connection.", e)
+        throw YoutubeVerificationRequiredException(e)
     } catch (e: ContentNotAvailableException) {
         throw YoutubeExtractionException("This track is unavailable in your region or requires account access.", e)
     }

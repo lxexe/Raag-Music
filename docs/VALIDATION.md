@@ -1,6 +1,14 @@
 # Open-source preparation checks
 
-Latest validated version: **1.24.7 (38)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
+Latest validated version: **1.24.8 (39)**, application ID **`com.raagmusic.app`**, on 25 October 2026.
+
+## Playback verification/session recovery — 1.24.8 (39)
+
+- Traced the reported verification message to NewPipe's bot-verification response mapping. This can reflect a YouTube connection restriction; no confirmed upstream fix for this symptom was identified. The extractor dependency remains unchanged.
+- Fixed stale in-memory visitor handling: both reused memory and disk sessions receive at most one refresh on LOGIN_REQUIRED within the existing request deadline. Refresh requests explicitly remove the old visitor value before obtaining a new one. Explicit bot-verification responses discard the rejected session and stop without full-extractor fanout. CAPTCHA exceptions also stop immediately. The repository does not apply its normal network retry to typed verification failures; age/account restrictions retain their separate handling.
+- Added regressions for successful in-memory recovery, persistent verification across audio/video, no fallback on CAPTCHA, distinction from age/account requirements, and no repository retry on verification. Existing cancellation, stream rejection and session expiry tests remain in the full suite.
+- Full SDK-free and Firebase-enabled debug/release builds, instrumentation APK compilation, all 253 unit tests in each variant, and lint passed (0 errors). All 14 Python release/exporter tests, YAML syntax, source audit and whitespace checks pass. No dependencies changed; APK device playback on the reporting connection was not tested.
+- This is an app-side session/retry correction, not a bypass of YouTube verification. Playback on the reporting user's mobile connection was not reproduced or proven fixed; an IP/network restriction may remain. No account login, cookie collection, proxy, or verification bypass was added.
 
 ## Daily GitHub update checks — 1.24.7 (38)
 

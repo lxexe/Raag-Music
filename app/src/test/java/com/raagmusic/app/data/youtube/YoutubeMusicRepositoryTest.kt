@@ -10,6 +10,19 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class YoutubeMusicRepositoryTest {
+    @Test fun verificationDoesNotTriggerTheRepositoryNetworkRetry() = runBlocking {
+        var calls = 0
+        val engine = object : FakeEngine() {
+            override fun audioStreamUrl(trackId: String): String { calls++; throw YoutubeVerificationRequiredException() }
+            override fun searchSongs(query: String) = emptyList<Track>()
+        }
+        try {
+            YoutubeMusicRepository(engine).getAudioStreamUrl("5NV6Rdv1a3I")
+            fail("Expected verification error")
+        } catch (_: YoutubeVerificationRequiredException) { }
+        assertEquals(1, calls)
+    }
+
     @Test fun allSearchHasAnIndependentCacheFromSongSearch() = runBlocking {
         val engine = Engine(listOf(song))
         val repository = YoutubeMusicRepository(engine)

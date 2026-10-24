@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.24.8 — playback session recovery
+
+- Refresh a rejected in-memory playback session once, matching recovery after an app restart.
+- Clear rejected verification sessions and avoid additional extraction requests after an explicit bot-verification response.
+- Explain connection verification errors more clearly. YouTube can still restrict a network independently of app session recovery.
+
 ## 1.24.7 — GitHub update checks
 
 - Check for new published versions about once a day, with a catch-up check when the app opens.
