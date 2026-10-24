@@ -37,7 +37,7 @@ The final Raag Music note icon and editable branding assets are project assets d
 
 ## Development tools and test dependencies
 
-The Gradle wrapper and Android build tools use their upstream licenses; the wrapper is Apache-2.0. JUnit 4.13.2 is EPL-1.0, Hamcrest 1.3 uses BSD-3-Clause, and the JVM-test-only `org.json:json:20240303` uses the JSON License. AndroidX test libraries are Apache-2.0. These are fetched as development dependencies and are not bundled by this repository's source exporter or the production app. Their source and license records are available through their Maven coordinates and upstream projects. Keep them test-scoped.
+The Gradle wrapper and Android build tools use their upstream licenses; the wrapper is Apache-2.0. JUnit 4.13.2 is EPL-1.0, Hamcrest 1.3 uses BSD-3-Clause, and the JVM-test-only `org.json:json:20260814` is published as Public Domain (see https://github.com/stleary/JSON-java/blob/20260814/LICENSE). AndroidX test libraries are Apache-2.0. These are fetched as development dependencies and are not bundled by this repository's source exporter or the production app. Their source and license records are available through their Maven coordinates and upstream projects. Keep them test-scoped.
 
 ## Included texts and distribution
 

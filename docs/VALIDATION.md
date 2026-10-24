@@ -2,6 +2,14 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Final dependency PR validation — 24 October 2026
+
+- Synced the merged public workflow actions, Gradle wrapper 9.8.2 and UI Automator 2.4.0 into the development snapshot. Applied Google Services plugin 4.5.0 and test-only JSON 20260814 together, matching the final two dependency PRs.
+- Reviewed JSON 20260814's exact published POM and upstream license: Public Domain. Updated the development-tool notice and synchronized the offline copy.
+- Both Firebase-enabled and SDK-free builds pass debug/release APK assembly, instrumentation APK compilation, all 235 unit tests without failures/skips, and lint with 0 errors. Firebase lint has 40 warnings. Validation uses JDK 17 and the merged Gradle 9.8.2 wrapper.
+- Firebase Google Services resource processing succeeded with the local client configuration; configuration contents remain private and excluded from the source ZIP. Live Analytics delivery and device playback were not retested.
+- Both runtime inventories reproduce unchanged. Source audit, all eight exporter tests, workflow YAML parsing and whitespace checks pass. The GitHub checkout and source ZIP include the reviewed updates; no remote merge or push was performed.
+
 ## Compose BOM compatibility review — 24 October 2026
 
 - Inspected hosted run [40093755354](https://github.com/lxexe/Raag-Music/actions/runs/40093755354), testing Compose BOM 2026.09.00. AAR metadata validation reports that its Compose 1.12.1 modules require compile SDK 37 and AGP 9.1+, while the project uses 35 and 9.0.1.

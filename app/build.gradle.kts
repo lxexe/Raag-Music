@@ -2,7 +2,7 @@ buildscript {
     repositories { google(); mavenCentral() }
     dependencies {
         if (providers.gradleProperty("firebaseAnalytics").orNull == "true") {
-            classpath("com.google.gms:google-services:4.4.4")
+            classpath("com.google.gms:google-services:4.5.0")
         }
     }
 }
@@ -74,7 +74,7 @@ dependencies {
     implementation("androidx.media3:media3-database:1.4.1")
     androidTestImplementation("androidx.media3:media3-datasource-okhttp:1.4.1")
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
     androidTestImplementation("androidx.test:runner:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.4.0")
