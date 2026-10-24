@@ -50,6 +50,9 @@ fun ListeningSettings(vm: MusicViewModel, onAppearance: () -> Unit, onCountry: (
             SettingsAction("Equalizer & transitions", if (audio) "Hide audio controls" else "Fine-tune your sound") { audio = !audio }
             if (audio) Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { AudioSettings(vm, features.preferences) }
         }
+        SettingsGroup("Updates") {
+            SettingsAction("Check for updates", "Version ${com.raagmusic.app.BuildConfig.VERSION_NAME} · Checks GitHub daily", onClick = vm::checkForUpdates)
+        }
         SettingsGroup("Privacy") {
             SettingsAction("Basic usage statistics", "App usage reporting and what is shared") { analyticsTab = 0 }
             SettingsAction("Listening analytics", "Library Insights and history · stays on this device") { analyticsTab = 1 }

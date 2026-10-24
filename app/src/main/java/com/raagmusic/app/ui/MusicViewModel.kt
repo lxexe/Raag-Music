@@ -106,6 +106,20 @@ class MusicViewModel(private val app: RaagApplication,
     val downloads = mutableDownloads.asStateFlow()
     private val mutableMessages = MutableSharedFlow<String>(extraBufferCapacity = 5)
     val messages = mutableMessages.asSharedFlow()
+    internal val updates = app.updates.state
+    private val mutableUpdateDialog = MutableStateFlow(false)
+    internal val updateDialog = mutableUpdateDialog.asStateFlow()
+    internal fun showAvailableUpdate() { mutableUpdateDialog.value = true }
+    internal fun checkForUpdates() {
+        mutableUpdateDialog.value = true
+        viewModelScope.launch { app.updates.check(manual = true) }
+    }
+    internal fun dismissUpdate() {
+        viewModelScope.launch {
+            app.updates.dismiss()
+            mutableUpdateDialog.value = false
+        }
+    }
     private val mutableSearchArtists = MutableStateFlow<List<com.raagmusic.app.data.youtube.ArtistProfile>>(emptyList())
     val searchArtists = mutableSearchArtists.asStateFlow()
     private val mutableSearchKind = MutableStateFlow("All")

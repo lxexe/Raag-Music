@@ -57,7 +57,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onStart() { super.onStart(); musicModel?.player?.setUiVisible(true) }
+    override fun onStart() {
+        super.onStart()
+        musicModel?.player?.setUiVisible(true)
+        (application as RaagApplication).checkUpdatesIfDue()
+    }
     override fun onStop() { musicModel?.player?.setUiVisible(false); super.onStop() }
 
     override fun onDestroy() {

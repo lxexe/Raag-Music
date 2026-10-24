@@ -33,3 +33,7 @@ Only the final Raag Music artwork, native icons and licensed Plus Jakarta Sans f
 `UsageReporting` owns a separate local reporting preference. Mutually exclusive `src/firebase` and `src/noFirebase` backends are selected with `-PfirebaseAnalytics=true`; the default contains no SDK. The FirebaseInitProvider is removed. New Firebase installations enable reporting by default; a saved opt-out is preserved. The backend initializes Firebase only while reporting is enabled and uses automatic events without any playback/library hooks. Turning reporting off disables collection and resets local SDK analytics data. See FIREBASE.md and PRIVACY.md.
 
 Privacy settings use separate App usage and Listening tabs. Local listening and history controls do not change remote reporting.
+
+## Update checks
+
+`updates/UpdateRepository` serializes daily/manual requests, keeps a private release-note/ETag cache, compares stable semantic versions, and respects network/rate-limit backoff. A network-constrained, persisted Android JobScheduler task runs about daily; Activity foreground entry catches up if due. Settings opens the same update dialog immediately, while a newly discovered version prompts once until dismissed. Release bodies are text, with maintainer HTML comments hidden; no remote images or scripts execute. Downloads open only official repository APK/release URLs in the browser. There is no silent installer or new telemetry dependency.

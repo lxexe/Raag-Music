@@ -55,6 +55,16 @@ private enum class Destination(val label: String, val icon: androidx.compose.ui.
 @UnstableApi
 @Composable
 fun RaagApp(vm: MusicViewModel) {
+    val updates by vm.updates.collectAsStateWithLifecycle()
+    val updateDialog by vm.updateDialog.collectAsStateWithLifecycle()
+    LaunchedEffect(updates.release?.version, updates.dismissedVersion) {
+        updates.release?.let { release ->
+            if (release.isNewerThan(com.raagmusic.app.BuildConfig.VERSION_NAME) && updates.dismissedVersion != release.version) {
+                vm.showAvailableUpdate()
+            }
+        }
+    }
+    if (updateDialog) AppUpdateDialog(updates, vm::checkForUpdates, vm::dismissUpdate)
     val screens = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     val homeScroll = rememberLazyListState()
     val exitPreferences by vm.preferences.collectAsStateWithLifecycle()

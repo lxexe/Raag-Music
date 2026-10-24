@@ -1,6 +1,16 @@
 # Open-source preparation checks
 
-Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
+Latest validated version: **1.24.7 (38)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
+
+## Daily GitHub update checks — 1.24.7 (38)
+
+- Added a network-constrained, persisted Android JobScheduler task with a 24-hour interval and six-hour flex window. Android selects the execution time; Activity startup catches up if the daily check is due. RECEIVE_BOOT_COMPLETED preserves the job after reboot. No new dependency or runtime permission prompt was added.
+- Added Settings → Check for updates and an in-app release-note dialog. Only newer stable published semantic versions prompt; drafts/prereleases, equal versions and downgrades do not. Later persists dismissal of that version; manual checking remains available. Official APK downloads open in the browser, with normal user-controlled installation.
+- Added serialized checks, ETag caching, offline notes, bounded responses/notes, short manual retry cooldown, automatic error backoff and server rate-limit handling. Bad responses retain the last valid cache. Notes display as text without remote images or scripts. Update failures and unavailable storage do not interrupt playback.
+- Release workflow notes now come from the exact CHANGELOG section; hidden maintainer comments are excluded from the in-app display. Updated privacy, architecture and release guidance, including the bundled privacy copy. Existing 1.24.6 installations need a one-time manual install of 1.24.7 before they can check future versions.
+- Full SDK-free and Firebase debug/release builds, instrumentation APK compilation and lint passed during development. Update unit coverage includes version ordering, cached/manual checks, 304s, rate limiting, cancellation, concurrency, clock changes, bad caches, missing releases and storage failures. Final validation: all 248 unit tests pass in each variant (including 13 updater regressions), 0 lint errors and 42 warnings in each variant. All 14 Python release/exporter tests pass. Runtime dependencies remain unchanged.
+- A fresh disposable emulator confirmed the Settings action, immediate check dialog, persisted daily job, synthetic newer-release prompt with cached notes and Download button, Later persistence across cold restart, and forced execution of the scheduled service. Network failures were exercised; live GitHub delivery in the emulator was not established. No fake release was published, APK download/installation was not triggered, and the temporary emulator was closed.
+- Both runtime inventories reproduce unchanged. Source audit, Python release/exporter tests, YAML syntax and whitespace checks pass. The public source ZIP excludes the private Firebase configuration and signing credentials. No GitHub commit/tag/release was pushed as part of this feature.
 
 ## Repository download button — 24 October 2026
 

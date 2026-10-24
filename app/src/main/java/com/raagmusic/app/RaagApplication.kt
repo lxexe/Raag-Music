@@ -14,6 +14,22 @@ class RaagApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         usageReporting
+        persistenceScope.launch {
+            try {
+                com.raagmusic.app.updates.UpdateSchedule.ensure(this@RaagApplication)
+                updates.load()
+            } catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { /* Settings can retry when storage or scheduling is available. */ }
+        }
+    }
+    internal val updates by lazy { com.raagmusic.app.updates.UpdateRepository(
+        com.raagmusic.app.updates.PreferenceUpdateStorage(this), com.raagmusic.app.updates.GitHubReleaseFetcher()) }
+    fun checkUpdatesIfDue() {
+        persistenceScope.launch {
+            try { updates.check() }
+            catch (error: kotlinx.coroutines.CancellationException) { throw error }
+            catch (_: Exception) { /* An update check must never interrupt playback/startup. */ }
+        }
     }
     val playbackMessages = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
     private var collectionContinuationJob: kotlinx.coroutines.Job? = null

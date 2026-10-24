@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing version tag, for example v1.24.6'
+        description: 'Existing version tag, for example v1.24.7'
         required: true
         type: string
       firebase:
@@ -96,18 +96,7 @@ jobs:
           cp "dist/Raag-Music-${RELEASE_VERSION}.apk" dist/Raag-Music-latest.apk
           cp LICENSES/runtime-dependencies*.json dist/
           (cd dist && sha256sum ./*.apk ./*.zip ./*.json > SHA256SUMS.txt)
-          cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES
-          Raag Music ${RELEASE_VERSION}
-
-          Install Raag-Music-${RELEASE_VERSION}.apk on Android 8.0 or newer.
-          Firebase basic usage statistics included: ${FIREBASE_ENABLED}.
-          Verify downloads using SHA256SUMS.txt. Source and dependency inventories are attached.
-
-          Maintainer: test this signed APK on a device and review CHANGELOG.md before publishing.
-          Attach exact corresponding sources for copyleft dependencies (including NewPipeExtractor,
-          Rhino and applicable desugaring sources), or provide a compliant source-access mechanism
-          as described in docs/RELEASING.md. The app source ZIP alone does not cover dependency sources.
-          EOF_NOTES
+          python3 scripts/release_notes.py "$RELEASE_VERSION" > "$RUNNER_TEMP/release-notes.md"
       - name: Upload signed release artifacts
         uses: actions/upload-artifact@v7
         with:

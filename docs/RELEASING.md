@@ -2,7 +2,7 @@
 
 ## Automatic signed GitHub releases
 
-The **Signed release** workflow builds and tests the tagged source, checks the exact runtime inventory, aligns/signs/verifies the APK and creates a **draft GitHub Release** containing the signed APK, audited app source ZIP, both dependency inventories and SHA-256 checksums. The README download button uses `releases/latest/download/Raag-Music-latest.apk`; the workflow attaches this stable filename alongside the versioned APK (identical signed contents). It follows the latest published release, not drafts. No signing commands are needed for future releases. The final Publish release action remains manual so you can test the APK and finish the dependency source attachments described below. This automation does not add an in-app updater.
+The **Signed release** workflow builds and tests the tagged source, checks the exact runtime inventory, aligns/signs/verifies the APK and creates a **draft GitHub Release** containing the signed APK, audited app source ZIP, both dependency inventories and SHA-256 checksums. The README download button uses `releases/latest/download/Raag-Music-latest.apk`; the workflow attaches this stable filename alongside the versioned APK (identical signed contents). It follows the latest published release, not drafts. No signing commands are needed for future releases. The final Publish release action remains manual so you can test the APK and finish the dependency source attachments described below. The app checks the latest published stable GitHub release daily and in Settings, showing the release body as notes. Keep CHANGELOG.md current: the workflow generates the public notes from the matching version section. Draft/prerelease builds are excluded from update checks; install still requires user action.
 
 ### One-time private setup
 
@@ -33,8 +33,8 @@ A base64 keystore must fit GitHub's 48 KB secret limit. The helper does not crea
 2. Push a matching tag. For the current app version:
 
 ```sh
-git tag v1.24.6
-git push origin v1.24.6
+git tag v1.24.7
+git push origin v1.24.7
 ```
 
 3. Open **Actions → Signed release** to follow progress. Once it finishes, open **Releases**, download/test the draft APK, attach corresponding dependency sources or provide the required source-access mechanism, edit the notes, and click **Publish release**.

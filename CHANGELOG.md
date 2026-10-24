@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.24.7 — GitHub update checks
+
+- Check for new published versions about once a day, with a catch-up check when the app opens.
+- Add Check for updates in Settings and show release notes inside the app.
+- Open the official signed APK download in your browser; installation stays under your control.
+- Cache update details for offline viewing and avoid repeated prompts after choosing Later.
+
 ## 1.24.6 — automated signed releases
 
 - Prepare matching Android version metadata for the signed release workflow (version code 37).
