@@ -2,6 +2,12 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## OkHttp Dependabot exclusion correction — 24 October 2026
+
+- Inspected hosted run [40093038318](https://github.com/lxexe/Raag-Music/actions/runs/40093038318), which tested the OkHttp 5.4.0 dependency PR. AAR metadata validation failed because that version requires compile SDK 36 and the app uses 35.
+- The previous exclusion of versions 5.5.0 and above allowed Dependabot to propose 5.4.0. Broadened the exclusion to all versions 5.0.0 and above, retaining updates within the tested 4.x series. Remove the exclusion only after validating the SDK and playback migration. The application dependency remains 4.12.0; CI is unchanged.
+- Source audit, eight exporter tests, workflow/Dependabot YAML parsing and whitespace checks pass. App builds were not repeated for this configuration/documentation-only correction; the preceding full build remains applicable. Existing PRs and failed run records are not rewritten by local configuration changes.
+
 ## Dependency update CI review — 24 October 2026
 
 - Inspected hosted runs 40081516882 (OkHttp 5.5.0), 40081720767 (Kotlin Compose plugin 2.4.21), and 40081539294 (Coil 2.7.0). OkHttp failed AAR metadata validation because it requires compile SDK 37; the project uses 35. Kotlin and Coil passed build/test/lint and failed the dependency inventory check.
@@ -12,7 +18,7 @@ Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`*
 
 - Updated Coil to 2.7.0 and its transitive Okio dependency to 3.9.0. Regenerated both standard and optional Firebase inventories from Gradle resolution, updated third-party version/source notices, and synchronized the offline notices.
 - Retained Kotlin Compose plugin 2.2.10. Local validation of 2.4.21 exposed D8 Kotlin metadata parsing errors despite the earlier hosted build completing; the newer Kotlin version needs a coordinated toolchain update. Dependabot excludes Kotlin Compose plugin versions 2.4 and above until that migration.
-- Retained OkHttp 4.12.0 and excluded versions 5.5.0 and above from Dependabot proposals because they require compile SDK 37. The app remains on compile SDK 35. Both exclusions are documented for removal with the toolchain migration; CI checks remain enabled.
+- Retained OkHttp 4.12.0. Initially excluded versions 5.5.0 and above because they require compile SDK 37; the follow-up correction below broadens this exclusion. The app remains on compile SDK 35. Both exclusions are documented for removal with the toolchain migration; CI checks remain enabled.
 - Full default CI-equivalent validation passed: debug APK, optimized release APK, instrumentation APK compilation, all 235 unit tests (no failures/skips), and lint (0 errors). The optional Firebase inventory was regenerated successfully; Firebase APK builds were not repeated for this dependency-only change.
 - The compatibility exclusions affect future Dependabot processing after pushing the configuration. Existing failed run records remain historical; do not merge the incompatible update branches.
 
