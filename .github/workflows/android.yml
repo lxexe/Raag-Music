@@ -25,7 +25,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # Override v3's default "tools platform-tools": "tools" is obsolete.
           packages: 'platform-tools platforms;android-35 build-tools;36.0.0'
