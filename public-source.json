@@ -1,0 +1,13 @@
+{
+  "files": [
+    ".editorconfig", ".gitattributes", ".gitignore", "README.md", "LICENSE",
+    "NOTICE", "THIRD_PARTY_NOTICES.md", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md",
+    "SECURITY.md", "PRIVACY.md", "CHANGELOG.md", "public-source.json",
+    "build.gradle.kts", "settings.gradle.kts", "gradle.properties", "gradlew",
+    "gradlew.bat", "local.properties.example", "app/build.gradle.kts",
+    "app/proguard-rules.pro", "benchmarks/build.gradle.kts"
+  ],
+  "directories": [
+    ".github", "app/src", "benchmarks/src", "docs", "gradle/wrapper", "LICENSES", "scripts"
+  ]
+}

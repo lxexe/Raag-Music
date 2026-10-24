@@ -1,0 +1,63 @@
+name: Android checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - name: Audit public source and exporter boundaries
+        run: |
+          python3 scripts/public_source.py
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          python3 scripts/export_source.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          # Override v3's default "tools platform-tools": "tools" is obsolete.
+          packages: 'platform-tools platforms;android-35 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build, test and lint
+        run: ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease :app:assembleDebugAndroidTest
+      - name: Check dependency inventory
+        id: inventory
+        run: |
+          ./gradlew -I scripts/runtime_inventory.init.gradle :app:writeRuntimeInventory
+          if ! git diff --exit-code -- LICENSES/runtime-dependencies.json; then
+            echo '::error file=LICENSES/runtime-dependencies.json::Dependency inventory changed. Regenerate it on this PR branch, review third-party notices, and commit the reviewed files. See CONTRIBUTING.md.'
+            exit 1
+          fi
+      - name: Upload dependency inventory for review
+        uses: actions/upload-artifact@v4
+        if: failure() && steps.inventory.outcome == 'failure'
+        with:
+          name: dependency-inventory-review
+          path: LICENSES/runtime-dependencies.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raag-music-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: verification-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.*
+          retention-days: 7

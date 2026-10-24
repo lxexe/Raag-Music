@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.Raag" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#F8F7FC</item>
+        <item name="android:colorAccent">#7541C9</item>
+    </style>
+    <string name="downloads_channel">Offline music</string>
+</resources>

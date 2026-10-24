@@ -1,0 +1,20 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="8dp" android:background="@drawable/widget_background">
+    <LinearLayout android:id="@+id/widget_open" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="horizontal">
+        <ImageView android:id="@+id/widget_artwork" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:src="@drawable/widget_ic_music" android:scaleType="centerCrop" android:background="@drawable/widget_control" android:clipToOutline="true" android:contentDescription="@string/widget_artwork" />
+        <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="4dp" android:paddingEnd="4dp">
+            <TextView android:id="@+id/widget_brand" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_brand" android:fontFamily="@font/raag" android:textSize="9sp" android:textColor="#CBB8FF" android:letterSpacing="0.18" android:visibility="gone" />
+            <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:text="@string/widget_ready_title" android:textStyle="bold" android:fontFamily="@font/raag" android:textColor="#FAF6FF" android:textSize="14sp" />
+            <TextView android:id="@+id/widget_artist" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:fontFamily="@font/raag" android:text="@string/widget_ready_artist" android:textColor="#C2BACF" android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+    <TextView android:layout_width="1dp" android:layout_height="2dp"  />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center">
+        <ImageButton android:id="@+id/widget_previous" android:layout_width="48dp" android:layout_height="48dp" android:background="@drawable/widget_control" android:src="@drawable/widget_ic_previous" android:padding="12dp" android:contentDescription="@string/widget_previous" />
+        <ImageButton android:id="@+id/widget_toggle" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginHorizontal="8dp" android:background="@drawable/widget_play" android:src="@drawable/widget_ic_play" android:tint="#211333" android:padding="12dp" android:contentDescription="@string/widget_play" />
+        <ImageButton android:id="@+id/widget_next" android:layout_width="48dp" android:layout_height="48dp" android:background="@drawable/widget_control" android:src="@drawable/widget_ic_next" android:padding="12dp" android:contentDescription="@string/widget_next" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="36dp" android:layout_marginTop="8dp" android:orientation="horizontal" android:visibility="gone">
+        <TextView android:id="@+id/widget_favorites" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:gravity="center" android:background="@drawable/widget_shortcut" android:fontFamily="@font/raag" android:textColor="#CBB8FF" android:textSize="11sp" android:text="@string/widget_favorites" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/widget_playlist" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:layout_marginStart="8dp" android:paddingHorizontal="8dp" android:gravity="center" android:background="@drawable/widget_shortcut" android:fontFamily="@font/raag" android:textColor="#CBB8FF" android:textSize="11sp" android:text="@string/widget_choose_playlist" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,17 @@
+Raag Music
+Copyright 2026 Lx and Raag Music contributors.
+SPDX-License-Identifier: GPL-3.0-or-later
+
+Original source code and project assets may be redistributed and modified
+under GNU GPL version 3 or (at your option) any later version. See LICENSE.
+This software is distributed without warranty.
+
+Third-party components retain their copyrights and licenses. See
+THIRD_PARTY_NOTICES.md, LICENSES/ and the bundled font license.
+
+The final icon was adapted as native vectors from an AI-generated
+coral-and-cream note concept selected by the project author. Editable sources
+are in docs/branding/ and app/src/main/res/drawable/.
+
+No external music, lyrics, artwork, third-party brand rights or service-access
+rights are granted by this software license.

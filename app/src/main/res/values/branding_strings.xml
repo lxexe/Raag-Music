@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Raag Music</string>
+    <string name="widget_name">Raag Music player</string>
+    <string name="widget_shortcut_title">Raag Music playlist shortcut</string>
+    <string name="widget_create_playlist">Create a playlist in Raag Music to add a shortcut.</string>
+    <string name="share_card_label">Raag Music card</string>
+    <string name="share_card_chooser">Share Raag Music card</string>
+    <string name="recap_title">My Raag Music recap</string>
+</resources>

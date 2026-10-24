@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # OkHttp 5.5.0 requires compile SDK 37. Revisit with the Android toolchain migration.
+    ignore:
+      - dependency-name: com.squareup.okhttp3:okhttp
+        versions: [">=5.5.0"]
+      # Kotlin 2.4 metadata is unsupported by this project's bundled D8/R8.
+      - dependency-name: org.jetbrains.kotlin.plugin.compose
+        versions: [">=2.4.0"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

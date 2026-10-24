@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.Raag" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#0B0D14</item>
+        <item name="android:colorAccent">#BEA1FF</item>
+    </style>
+</resources>

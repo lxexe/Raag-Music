@@ -1,0 +1,29 @@
+// Usage: ./gradlew -I scripts/runtime_inventory.init.gradle :app:writeRuntimeInventory
+// This records exact resolved modules, not license determinations or source archives.
+import groovy.json.JsonOutput
+
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    app.tasks.register('writeRuntimeInventory') {
+        group = 'verification'
+        description = 'Record resolved release and desugaring modules for license review'
+        doLast {
+            def names = ['releaseRuntimeClasspath', 'coreLibraryDesugaring']
+            def configurations = names.collectEntries { name ->
+                def modules = app.configurations.getByName(name).incoming.resolutionResult.allComponents
+                    .findAll { it.id instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+                    .collect { "${it.moduleVersion.group}:${it.moduleVersion.name}:${it.moduleVersion.version}".toString() }
+                    .unique().sort()
+                [(name): modules]
+            }
+            def suffix = app.providers.gradleProperty('firebaseAnalytics').orNull == 'true' ? '-firebase' : ''
+            def output = gradle.rootProject.file("LICENSES/runtime-dependencies${suffix}.json")
+            output.parentFile.mkdirs()
+            output.text = JsonOutput.prettyPrint(JsonOutput.toJson([
+                description: 'Resolved release modules including platform metadata; not a license or dependency source bundle.',
+                configurations: configurations
+            ])) + '\n'
+            println "Wrote ${output.name}; review licenses and bundled notices before release."
+        }
+    }
+}

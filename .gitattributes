@@ -1,0 +1,18 @@
+* text=auto
+*.kt text eol=lf
+*.kts text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+*.png binary
+*.ttf binary
+*.jar binary
+
+# Preserve upstream license formatting verbatim.
+LICENSE -whitespace
+LICENSES/** -whitespace
+app/src/main/assets/licenses/** -whitespace
+app/src/main/assets/fonts/*-OFL.txt -whitespace

@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible problem in Raag Music.
+body:
+  - type: markdown
+    attributes:
+      value: "For security issues, follow SECURITY.md. Remove personal details and signed media URLs from reports."
+  - type: input
+    id: version
+    attributes:
+      label: App version and install source
+      placeholder: "Example: 1.24.1, built from source"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Android version and device
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include relevant settings and whether this happens on Wi-Fi, mobile data or both.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or sanitized logs
+      description: Optional. Do not include account details, library backups, stream signatures or tokens.
