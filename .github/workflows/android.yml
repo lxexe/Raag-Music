@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - uses: gradle/actions/wrapper-validation@v4
+      - uses: gradle/actions/wrapper-validation@v6
       - name: Audit public source and exporter boundaries
         run: |
           python3 scripts/public_source.py
@@ -30,7 +30,7 @@ jobs:
           # Override v3's default "tools platform-tools": "tools" is obsolete.
           packages: 'platform-tools platforms;android-35 build-tools;36.0.0'
           log-accepted-android-sdk-licenses: false
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build, test and lint
         run: ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:assembleRelease :app:assembleDebugAndroidTest
       - name: Check dependency inventory
