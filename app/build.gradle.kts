@@ -2,7 +2,7 @@ buildscript {
     repositories { google(); mavenCentral() }
     dependencies {
         if (providers.gradleProperty("firebaseAnalytics").orNull == "true") {
-            classpath("com.google.gms:google-services:4.4.4")
+            classpath("com.google.gms:google-services:4.5.0")
         }
     }
 }
