@@ -2,6 +2,12 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Repository download button — 24 October 2026
+
+- Added a local SVG Download latest APK button near the top of README, linking to the latest published release's `Raag-Music-latest.apk` asset. Added an adjacent release-notes link.
+- Updated the signed release workflow to attach the stable APK alias alongside the versioned filename, with both included in checksums. APK content/signature is unchanged; the alias is a byte-for-byte copy after signing.
+- Source audit, all 12 Python tests, workflow YAML parsing and whitespace checks passed. Updated the README's Gradle version to match the current wrapper.
+
 ## Release version correction — 1.24.6 (37)
 
 - Hosted run 40100527795 stopped before build/signing: tag v1.24.5 pointed to Android versionName 1.24.4. Prepared fresh version 1.24.6 with incremented versionCode 37, avoiding replacement of existing tags.

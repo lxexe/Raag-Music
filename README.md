@@ -6,6 +6,10 @@ A native Android music player built with Kotlin, Jetpack Compose and Media3.
 
 **Android 8.0+ · GPL-3.0-or-later · No account required**
 
+[![Download latest APK](docs/branding/download-apk.svg)](https://github.com/lxexe/Raag-Music/releases/latest/download/Raag-Music-latest.apk)
+
+[Release notes and all downloads](https://github.com/lxexe/Raag-Music/releases/latest)
+
 ## Features
 
 - Search songs, artists, albums and playlists through public YouTube Music discovery.
@@ -20,7 +24,7 @@ Provider availability can change. Playback, lyrics and downloads depend on the s
 
 ## Build
 
-Use **JDK 17**, Android SDK Platform **35**, Build Tools **36.0.0**, and Android Studio with AGP 9.0.1 support. The included wrapper runs Gradle 9.2.1.
+Use **JDK 17**, Android SDK Platform **35**, Build Tools **36.0.0**, and Android Studio with AGP 9.0.1 support. The included wrapper runs Gradle 9.8.2.
 
 1. Clone or extract the project and open it in Android Studio.
 2. Select JDK 17 for Gradle.

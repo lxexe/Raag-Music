@@ -93,6 +93,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
         run: |
+          cp "dist/Raag-Music-${RELEASE_VERSION}.apk" dist/Raag-Music-latest.apk
           cp LICENSES/runtime-dependencies*.json dist/
           (cd dist && sha256sum ./*.apk ./*.zip ./*.json > SHA256SUMS.txt)
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF_NOTES

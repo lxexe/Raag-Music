@@ -2,7 +2,7 @@
 
 ## Automatic signed GitHub releases
 
-The **Signed release** workflow builds and tests the tagged source, checks the exact runtime inventory, aligns/signs/verifies the APK and creates a **draft GitHub Release** containing the signed APK, audited app source ZIP, both dependency inventories and SHA-256 checksums. No signing commands are needed for future releases. The final Publish release action remains manual so you can test the APK and finish the dependency source attachments described below. This automation does not add an in-app updater.
+The **Signed release** workflow builds and tests the tagged source, checks the exact runtime inventory, aligns/signs/verifies the APK and creates a **draft GitHub Release** containing the signed APK, audited app source ZIP, both dependency inventories and SHA-256 checksums. The README download button uses `releases/latest/download/Raag-Music-latest.apk`; the workflow attaches this stable filename alongside the versioned APK (identical signed contents). It follows the latest published release, not drafts. No signing commands are needed for future releases. The final Publish release action remains manual so you can test the APK and finish the dependency source attachments described below. This automation does not add an in-app updater.
 
 ### One-time private setup
 

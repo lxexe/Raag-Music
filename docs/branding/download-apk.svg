@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="248" height="48" viewBox="0 0 248 48" role="img" aria-labelledby="title">
+  <title id="title">Download latest APK</title>
+  <rect width="248" height="48" rx="10" fill="#D94F48"/>
+  <g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M25 13v16m-6-6 6 6 6-6M16 30v5h18v-5"/>
+  </g>
+  <text x="47" y="29" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="bold">Download latest APK</text>
+</svg>
