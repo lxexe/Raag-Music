@@ -13,6 +13,9 @@ updates:
       # Kotlin 2.4 metadata is unsupported by this project's bundled D8/R8.
       - dependency-name: org.jetbrains.kotlin.plugin.compose
         versions: [">=2.4.0"]
+      # Upgrade the Compose BOM manually with its SDK/AGP requirements.
+      # The proposed 2026.09.00 BOM needs API 37 and AGP 9.1+.
+      - dependency-name: androidx.compose:compose-bom
   - package-ecosystem: github-actions
     directory: /
     schedule:

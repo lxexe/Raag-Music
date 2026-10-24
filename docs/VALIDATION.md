@@ -2,6 +2,12 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Compose BOM compatibility review — 24 October 2026
+
+- Inspected hosted run [40093755354](https://github.com/lxexe/Raag-Music/actions/runs/40093755354), testing Compose BOM 2026.09.00. AAR metadata validation reports that its Compose 1.12.1 modules require compile SDK 37 and AGP 9.1+, while the project uses 35 and 9.0.1.
+- Retained the tested Compose BOM 2024.10.01 and configured this dependency for manual upgrade review by excluding it from automatic Dependabot proposals. This defers the framework/toolchain migration; it does not make the incompatible PR build successfully. Existing PRs must be closed or migrated separately.
+- No app dependencies or workflow checks changed for this correction. Source audit, eight exporter tests, YAML parsing, whitespace checks and source ZIP verification passed. The preceding full Android build remains applicable.
+
 ## Coroutines dependency inventory correction — 24 October 2026
 
 - Inspected hosted run [40092974760](https://github.com/lxexe/Raag-Music/actions/runs/40092974760), which tested Coroutines 1.11.0. Its build/test/lint step passed; the inventory check failed because the PR changed library versions without updating the recorded graph.
