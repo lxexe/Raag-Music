@@ -10,7 +10,13 @@ gradle.projectsEvaluated {
         doLast {
             def names = ['releaseRuntimeClasspath', 'coreLibraryDesugaring']
             def configurations = names.collectEntries { name ->
-                def modules = app.configurations.getByName(name).incoming.resolutionResult.allComponents
+                def resolution = app.configurations.getByName(name).incoming.resolutionResult
+                resolution.allDependencies.findAll {
+                    it instanceof org.gradle.api.artifacts.result.UnresolvedDependencyResult
+                }.each { dependency ->
+                    throw new GradleException("Cannot record ${name}: ${dependency.attempted} did not resolve", dependency.failure)
+                }
+                def modules = resolution.allComponents
                     .findAll { it.id instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier }
                     .collect { "${it.moduleVersion.group}:${it.moduleVersion.name}:${it.moduleVersion.version}".toString() }
                     .unique().sort()

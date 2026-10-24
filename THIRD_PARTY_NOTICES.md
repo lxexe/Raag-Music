@@ -7,7 +7,7 @@ Raag Music's original source is GPL-3.0-or-later. Dependencies, fonts and build 
 | Component | Version / revision | License | Upstream source |
 | --- | --- | --- | --- |
 | AndroidX, Compose, Material 3, Activity, Lifecycle, DataStore, Media3, ProfileInstaller and their AndroidX dependencies | Exact modules in inventory | Apache-2.0 | https://android.googlesource.com/platform/frameworks/support/ |
-| Kotlin standard library and kotlinx.coroutines | 2.2.10 / 1.9.0 | Apache-2.0 | https://github.com/JetBrains/kotlin and https://github.com/Kotlin/kotlinx.coroutines |
+| Kotlin standard library and kotlinx.coroutines | 2.2.20 / 1.11.0 | Apache-2.0 | https://github.com/JetBrains/kotlin/tree/v2.2.20 and https://github.com/Kotlin/kotlinx.coroutines/tree/1.11.0 |
 | Coil | 2.7.0 | Apache-2.0 | https://github.com/coil-kt/coil/tree/2.7.0 |
 | OkHttp / Okio | 4.12.0 / 3.9.0 | Apache-2.0 | https://github.com/square/okhttp/tree/parent-4.12.0 and https://github.com/square/okio/tree/parent-3.9.0 |
 | NewPipeExtractor | v0.26.3 | GPL-3.0-or-later | https://github.com/TeamNewPipe/NewPipeExtractor/tree/v0.26.3 |

@@ -2,6 +2,13 @@
 
 Latest validated version: **1.24.4 (36)**, application ID **`com.raagmusic.app`**, on 24 October 2026.
 
+## Coroutines dependency inventory correction — 24 October 2026
+
+- Inspected hosted run [40092974760](https://github.com/lxexe/Raag-Music/actions/runs/40092974760), which tested Coroutines 1.11.0. Its build/test/lint step passed; the inventory check failed because the PR changed library versions without updating the recorded graph.
+- Applied Coroutines 1.11.0, which resolves Kotlin standard library 2.2.20. The Kotlin Compose compiler plugin remains 2.2.10. Regenerated both runtime inventories with resolved dependencies and updated source links/version notices, including the app's offline copy. The inventory check remains enabled.
+- Full standard build validation passed: debug/release APKs, instrumentation APK compilation, all 235 unit tests without failures/skips, and lint with 0 errors and 43 warnings. Firebase inventory generation passed online; Firebase APK builds and live playback were not repeated.
+- Inventory generation now rejects unresolved dependencies rather than silently exporting an incomplete graph. Source audit and all eight exporter tests pass. The source ZIP and GitHub-connected checkout include the correction.
+
 ## OkHttp Dependabot exclusion correction — 24 October 2026
 
 - Inspected hosted run [40093038318](https://github.com/lxexe/Raag-Music/actions/runs/40093038318), which tested the OkHttp 5.4.0 dependency PR. AAR metadata validation failed because that version requires compile SDK 36 and the app uses 35.
