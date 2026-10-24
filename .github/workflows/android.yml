@@ -42,18 +42,18 @@ jobs:
             exit 1
           fi
       - name: Upload dependency inventory for review
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure() && steps.inventory.outcome == 'failure'
         with:
           name: dependency-inventory-review
           path: LICENSES/runtime-dependencies.json
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: raag-music-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: verification-reports
