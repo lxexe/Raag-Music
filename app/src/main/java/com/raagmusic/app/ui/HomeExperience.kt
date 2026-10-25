@@ -160,7 +160,7 @@ private fun QuickPickShelf(songs: List<Track>, activeId: String?, onPlay: (Track
     val pages = remember(songs) { songs.take(20).chunked(4) }
     val shelf = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(songs) { shelf.scrollToItem(0) }
+    LaunchedEffect(pages.size) { if (pages.isNotEmpty() && shelf.firstVisibleItemIndex > pages.lastIndex) shelf.scrollToItem(pages.lastIndex) }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Quick picks", fontSize = 22.sp, letterSpacing = (-.5).sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))

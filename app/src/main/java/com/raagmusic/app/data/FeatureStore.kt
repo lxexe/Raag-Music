@@ -81,7 +81,7 @@ object FeatureCodec {
         put("lessLikeIds", JSONArray(s.lessLikeIds.toList()))
         put("history", JSONArray(s.history.map { JSONObject().apply {
             put("id", it.trackId); put("day", it.day); put("ms", it.milliseconds)
-            put("plays", it.plays); put("skips", it.skips)
+            put("plays", it.plays); put("skips", it.skips); put("completions", it.completions)
         } }))
     }.toString()
     fun decode(raw: String?): FeatureState {
@@ -135,7 +135,7 @@ object FeatureCodec {
             runCatching { VideoQuality.valueOf(p.getString("videoQuality")) }.getOrDefault(VideoQuality.HIGHEST)),
             QueueSnapshot(queueTracks, q.optInt("index"), q.optLong("positionMs"), q.optBoolean("shuffle"), q.optInt("repeat"), q.optBoolean("recommendationChain")).sanitized(),
             List(h.length()) { i -> h.getJSONObject(i).let { ListenRecord(it.getString("id"), it.getString("day"),
-                it.optLong("ms").coerceAtLeast(0), it.optInt("plays").coerceAtLeast(0), it.optInt("skips").coerceAtLeast(0)) } },
+                it.optLong("ms").coerceAtLeast(0), it.optInt("plays").coerceAtLeast(0), it.optInt("skips").coerceAtLeast(0), it.optInt("completions").coerceAtLeast(0)) } },
             List(less.length()) { less.getString(it) }.toSet(), j.optLong("historyEpoch").coerceAtLeast(0), theme, searchPreferences,
             ListenerProfile(j.optJSONObject("profile")?.optString("name").orEmpty(),
                 j.optJSONObject("profile")?.optBoolean("namePromptSeen") ?: false).sanitized(),

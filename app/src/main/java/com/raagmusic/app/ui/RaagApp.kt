@@ -125,7 +125,12 @@ fun RaagApp(vm: MusicViewModel) {
             if (result == SnackbarResult.ActionPerformed && vm.undoVersion.value == version) vm.undoRemoval()
         }
     } }
-    LaunchedEffect(vm) { vm.playback.map { it.error }.distinctUntilChanged().collect { error -> error?.let { snackbars.showSnackbar(it) } } }
+    LaunchedEffect(vm) { vm.playback.map { Triple(it.trackId, it.error, it.failure != null) }.distinctUntilChanged().collect { (_, message, hasDetails) ->
+        message?.let {
+            if (snackbars.showSnackbar(it, actionLabel = if (hasDetails) "Details" else null, withDismissAction = true,
+                    duration = SnackbarDuration.Long) == SnackbarResult.ActionPerformed) expandedPlayer = true
+        }
+    } }
     BackHandler(exitPreferences.stopOnExit && destination == Destination.HOME && !imeOpen && artistPage == null && browsePage == null &&
         !expandedPlayer && !settings && !showQueue && options == null && remoteCollection == null && !appearanceSettings && !countrySettings) {
         (context as? android.app.Activity)?.finish()
@@ -155,6 +160,9 @@ fun RaagApp(vm: MusicViewModel) {
 
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
             .then(if (expandedPlayer) Modifier.clearAndSetSemantics { } else Modifier)) {
+            updates.release?.takeIf { it.isNewerThan(com.raagmusic.app.BuildConfig.VERSION_NAME) && !expandedPlayer }?.let { release ->
+                UpdateAvailableBanner(release.version, vm::showAvailableUpdate)
+            }
             Row(Modifier.weight(1f)) {
                 if(wide) Column(Modifier.width(176.dp).fillMaxHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Brand(Modifier.padding(vertical = 20.dp))
@@ -238,7 +246,7 @@ fun RaagApp(vm: MusicViewModel) {
                     vm.openArtist(name, track); options = null; expandedPlayer = false
                 }
             }
-            Option(Icons.Rounded.ThumbDownOffAlt, "Less like this") { vm.lessLike(track); options = null }
+            Option(Icons.Rounded.ThumbDownOffAlt, "Not interested") { vm.lessLike(track); options = null }
             if (track.source == Source.YOUTUBE) Option(Icons.Rounded.Share, "Share song") {
                 val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                     type = "text/plain"; putExtra(android.content.Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${track.id}")

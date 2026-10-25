@@ -42,7 +42,9 @@ class MainActivity : ComponentActivity() {
             if (appearance != null) RaagTheme(appearance) {
                 androidx.compose.runtime.LaunchedEffect(model) {
                     launchRequests.collect { request ->
-                        if (request?.action == android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) {
+                        if (request?.getBooleanExtra(com.raagmusic.app.updates.UpdateNotifications.OPEN_UPDATES, false) == true) {
+                            model.showAvailableUpdate()
+                        } else if (request?.action == android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH) {
                             model.playFromSearch(request.getStringExtra(android.app.SearchManager.QUERY).orEmpty())
                         } else if (request?.action == android.content.Intent.ACTION_SEND && request.type == "text/plain") {
                             model.openSharedLink(request.getStringExtra(android.content.Intent.EXTRA_TEXT).orEmpty())

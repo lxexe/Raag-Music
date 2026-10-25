@@ -113,6 +113,12 @@ class AudioPlayerClientTest {
             assertNull(AudioSessionStore(directory).read("US"))
             calls.clear()
             assertThrows(YoutubeVerificationRequiredException::class.java) { engine.videoStream("5NV6Rdv1a3I", 720) }
+            assertTrue("A blocked connection must not issue more playback requests", calls.isEmpty())
+            engine.onPlaybackRetry("dQw4w9WgXcQ")
+            assertThrows(YoutubeVerificationRequiredException::class.java) { engine.audioStream("dQw4w9WgXcQ", 0) }
+            assertTrue("Manual retry cannot bypass a provider cooldown", calls.isEmpty())
+            engine.onConnectionChanged()
+            assertThrows(YoutubeVerificationRequiredException::class.java) { engine.videoStream("5NV6Rdv1a3I", 720) }
             assertEquals(listOf("visitor_id", "player"), calls)
         } finally { directory.deleteRecursively(); NewPipe.init(NewPipeDownloader(), Localization("en", "US")) }
     }

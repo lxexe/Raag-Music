@@ -206,6 +206,7 @@ class PlaybackService : MediaLibraryService() {
         if (spec.finishTrackId == null && remaining == 0L) finishSleepTimer()
     }
     private var ready = false
+    private val listeningSession = ListeningSession()
     private var counted = false
     private var lastTick = SystemClock.elapsedRealtime()
     private var wasPlaying = false
@@ -213,7 +214,6 @@ class PlaybackService : MediaLibraryService() {
     private var accumulatedMs = 0L
     private var lastSnapshot: QueueSnapshot? = null
     private var historyEpoch = 0L
-    private var countedMediaId: String? = null
     private var requestedCollectionToken: String? = null
 
     private fun save(block: suspend () -> Unit) {
@@ -227,10 +227,10 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    private fun record(id: String, ms: Long = 0, plays: Int = 0, skips: Int = 0) {
+    private fun record(id: String, ms: Long = 0, plays: Int = 0, skips: Int = 0, completions: Int = 0) {
         val epoch = historyEpoch
         val day = LocalDate.now()
-        save { app.features.update { if (it.historyEpoch == epoch) it.record(id, day, ms, plays, skips) else it } }
+        save { app.features.update { if (it.historyEpoch == epoch) it.record(id, day, ms, plays, skips, completions) else it } }
     }
 
     private fun limit(): Int {
@@ -251,7 +251,11 @@ class PlaybackService : MediaLibraryService() {
     private fun sample() {
         val player = exoPlayer ?: return
         val now = SystemClock.elapsedRealtime()
-        if (preferences.analyticsEnabled && wasPlaying && observedId != null) accumulatedMs += (now - lastTick).coerceIn(0, 10_000)
+        if (wasPlaying && observedId != null) {
+            val heard = (now - lastTick).coerceIn(0, 10_000)
+            listeningSession.heard(observedId, heard)
+            if (preferences.analyticsEnabled) accumulatedMs += heard
+        }
         lastTick = now
         wasPlaying = player.isPlaying
         val id = player.currentMediaItem?.mediaId
@@ -295,6 +299,11 @@ class PlaybackService : MediaLibraryService() {
             }
             sample()
             flushListening()
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                listeningSession.complete()?.let { record(it, completions = 1) }
+            }
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) listeningSession.earlySkipCurrent()?.let { record(it, skips = 1) }
+            listeningSession.transition(mediaItem?.mediaId, reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT)
             if (newListen) counted = false
             observedId = mediaItem?.mediaId
             recoveryJob?.cancel()
@@ -304,12 +313,17 @@ class PlaybackService : MediaLibraryService() {
             if (reason == Player.DISCONTINUITY_REASON_SEEK) recommendationQueue?.cancelPendingAdvance()
             sample()
             flushListening()
+            if (reason == Player.DISCONTINUITY_REASON_SEEK && oldPosition.mediaItem?.mediaId == newPosition.mediaItem?.mediaId &&
+                newPosition.positionMs < 1_000 && listeningSession.restartCompleted(newPosition.mediaItem?.mediaId)) counted = false
             if (reason == Player.DISCONTINUITY_REASON_SEEK && oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId &&
-                oldPosition.positionMs < 30_000 && oldPosition.mediaItem?.mediaId == countedMediaId) {
+                listeningSession.earlySkip(oldPosition.mediaItem?.mediaId)) {
                 oldPosition.mediaItem?.mediaId?.let { id -> record(id, skips = 1) }
             }
         }
         override fun onEvents(player: Player, events: Player.Events) {
+            if (player.playerError == null && session?.sessionExtras?.containsKey("failureKind") == true) extras {
+                remove("failureKind"); remove("failureTitle"); remove("failureMessage"); remove("failureRetryAt"); remove("failureTrackId")
+            }
             // Fade volume ticks need neither library writes nor widget broadcasts.
             if (events.size() == 1 && events.contains(Player.EVENT_VOLUME_CHANGED)) return
             if (sleepTimer.spec.finishTrackId != null && player.playbackState == Player.STATE_ENDED) finishSleepTimer()
@@ -322,9 +336,11 @@ class PlaybackService : MediaLibraryService() {
             }
             warmNext()
             sample()
+            listeningSession.duration(player.currentMediaItem?.mediaId, player.duration)
+            if (player.playbackState == Player.STATE_ENDED) listeningSession.complete()?.let { record(it, completions = 1) }
+            if (player.isPlaying) player.currentMediaItem?.mediaId?.let(listeningSession::started)
             if (player.isPlaying && !counted) {
                 counted = true
-                countedMediaId = player.currentMediaItem?.mediaId
                 player.currentMediaItem?.let { item ->
                     track(item)?.let { t -> save { app.library.update { library -> library.copy(
                         savedTracks = rememberTrackMetadata(library.savedTracks, listOf(t)),
@@ -341,7 +357,16 @@ class PlaybackService : MediaLibraryService() {
 
         override fun onPlayerError(error: PlaybackException) {
             val player = exoPlayer ?: return
+            val failure = playbackFailure(error).let {
+                if (error.httpResponseCode() == 429) it.copy(retryAtEpochMillis = app.youtube.onPlaybackRateLimited()) else it
+            }
+            extras {
+                putString("failureTrackId", player.currentMediaItem?.mediaId)
+                putString("failureKind", failure.kind.name); putString("failureTitle", failure.title)
+                putString("failureMessage", failure.message); putLong("failureRetryAt", failure.retryAtEpochMillis ?: 0)
+            }
             recoveryJob?.cancel()
+            listeningSession.failed(player.currentMediaItem?.mediaId)
             suspendPreparation()
             streamResolver?.invalidate(player.currentMediaItem?.localConfiguration?.uri?.toString(), rejected = error.httpResponseCode() == 403)
             val retryable = error.isRecoverableNetworkError()
@@ -412,6 +437,9 @@ class PlaybackService : MediaLibraryService() {
         }
         exoPlayer = player
         val connectivity = getSystemService(ConnectivityManager::class.java)
+        var validatedNetwork = connectivity.activeNetwork?.takeIf { network ->
+            connectivity.getNetworkCapabilities(network)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+        }?.networkHandle
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onLost(network: android.net.Network) {
                 serviceScope.launch { networkRecovery.lost(network.networkHandle); warmNext() }
@@ -419,10 +447,13 @@ class PlaybackService : MediaLibraryService() {
             override fun onCapabilitiesChanged(network: android.net.Network, capabilities: android.net.NetworkCapabilities) {
                 if (!capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return
                 serviceScope.launch {
+                    val changed = validatedNetwork != network.networkHandle
+                    if (changed) { validatedNetwork = network.networkHandle; app.youtube.onConnectionChanged() }
                     val error = player.playerError
+                    val restrictedConnection = error?.let { playbackFailure(it).kind in setOf(PlaybackFailureKind.VERIFICATION, PlaybackFailureKind.RATE_LIMIT) } == true
                     val failedConnection = error?.hasNetworkCause() == true || error?.errorCode in setOf(
                         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
-                    if (networkRecovery.validated(network.networkHandle, player.playWhenReady, failedConnection)) {
+                    if (networkRecovery.validated(network.networkHandle, player.playWhenReady, failedConnection || (changed && restrictedConnection))) {
                         recoveryJob?.cancel(); recoveryPolicy.reset()
                         PlaybackTrace.mark(player.currentMediaItem?.mediaId.orEmpty(), "connection_restored_retry")
                         player.prepare()
@@ -637,7 +668,12 @@ class PlaybackService : MediaLibraryService() {
                     } }
                     if (items.isNotEmpty()) { player.setMediaItems(items, index.coerceAtLeast(0), position); player.prepare(); player.playWhenReady = resume }
                 }
-                if (previous.analyticsEnabled != preferences.analyticsEnabled) { accumulatedMs = 0; lastTick = SystemClock.elapsedRealtime() }
+                if (previous.analyticsEnabled != preferences.analyticsEnabled || historyEpoch != state.historyEpoch) {
+                    accumulatedMs = 0; lastTick = SystemClock.elapsedRealtime()
+                    listeningSession.transition(player.currentMediaItem?.mediaId, repeated = true)
+                    listeningSession.duration(player.currentMediaItem?.mediaId, player.duration)
+                    if (player.isPlaying) player.currentMediaItem?.mediaId?.let(listeningSession::started)
+                }
                 if (previous.wifiQuality != preferences.wifiQuality || previous.mobileQuality != preferences.mobileQuality) warmNext()
                 configureSleepTimer(state.sleepTimer)
                 // Ending with this song must not start the incoming crossfade decoder.

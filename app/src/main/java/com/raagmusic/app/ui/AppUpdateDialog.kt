@@ -4,17 +4,40 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.raagmusic.app.BuildConfig
 import com.raagmusic.app.updates.UpdateState
-import java.text.DateFormat
-import java.util.Date
+
+@Composable
+internal fun UpdateAvailableBanner(version: String, onOpen: () -> Unit) {
+    Surface(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Rounded.SystemUpdate, null, Modifier.size(24.dp))
+            Column(Modifier.weight(1f)) {
+                Text("A fresh update is ready", style = MaterialTheme.typography.titleSmall)
+                Text("Raag Music $version · See what's new", style = MaterialTheme.typography.bodySmall)
+            }
+            Text("View", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
 
 @Composable
 internal fun AppUpdateDialog(state: UpdateState, onCheck: () -> Unit, onDismiss: () -> Unit) {
@@ -22,47 +45,59 @@ internal fun AppUpdateDialog(state: UpdateState, onCheck: () -> Unit, onDismiss:
     val release = state.release
     val newer = release?.isNewerThan(BuildConfig.VERSION_NAME) == true
     var browserError by remember { mutableStateOf(false) }
+    val maxBodyHeight = (LocalConfiguration.current.screenHeightDp - 320).coerceIn(140, 420).dp
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (newer) "New version available" else "App updates") },
+        shape = RoundedCornerShape(28.dp),
+        icon = {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                Icon(if (!newer && !state.checking && state.error == null && state.lastChecked > 0) Icons.Rounded.CheckCircle else Icons.Rounded.SystemUpdate,
+                    null, Modifier.padding(16.dp).size(32.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+        },
+        title = { Text(if (newer) "A new version is ready" else "Your Raag Music", fontWeight = FontWeight.SemiBold) },
         text = {
-            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Installed version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium)
-                if (state.checking) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text("Checking GitHub…")
-                }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (!state.checking && state.error == null && state.lastChecked > 0) {
-                    Text(if (newer) "Raag Music ${release!!.version} is available." else "You're up to date.",
-                        style = MaterialTheme.typography.titleMedium)
-                }
-                if (state.lastChecked > 0) Text(
-                    "Last checked ${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(state.lastChecked))}",
-                    color = Muted, style = MaterialTheme.typography.bodySmall)
-                if (release != null) {
-                    HorizontalDivider()
-                    Text("What's new in ${release.version}", style = MaterialTheme.typography.titleMedium)
-                    // Keep notes selectable, safe and available offline after a successful check.
-                    SelectionContainer {
-                        Text(release.notes.ifBlank { "No release notes were provided for this version." },
-                            style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.fillMaxWidth().heightIn(max = maxBodyHeight).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(if (newer) "Version ${release!!.version} is available" else "Version ${BuildConfig.VERSION_NAME}",
+                            style = MaterialTheme.typography.titleSmall)
+                        Text(if (newer) "You're using ${BuildConfig.VERSION_NAME}" else if (state.checking) "Looking for something new…"
+                            else if (state.lastChecked > 0 && state.error == null) "You're all up to date" else "Keep your music experience fresh",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                if (browserError) Text("Couldn't open a browser. Please try again.", color = MaterialTheme.colorScheme.error)
-                Text("Checks about once a day when online. Android chooses the background time. No music or library data is sent. Downloads open in your browser; you choose whether to install.",
-                    color = Muted, style = MaterialTheme.typography.bodySmall)
+                if (state.checking) LinearProgressIndicator(Modifier.fillMaxWidth())
+                state.error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                    if (newer) TextButton(onClick = onCheck, enabled = !state.checking) { Text("Try again") }
+                }
+                if (release != null && release.notes.isNotBlank()) {
+                    Text(if (newer) "What's new" else "In the latest release", style = MaterialTheme.typography.titleMedium)
+                    SelectionContainer {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            release.notes.lines().filter { it.isNotBlank() && !Regex("(?i)^#+ +what['’]s new.*").matches(it.trim()) }.forEach { line ->
+                                val heading = line.startsWith('#')
+                                val text = line.trimStart('#', ' ').replace("**", "")
+                                    .replace(Regex("^[-*] "), "• ")
+                                Text(text, style = if (heading) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+                if (browserError) Text("Couldn't open the download. Please try again.", color = MaterialTheme.colorScheme.error)
             }
         },
         confirmButton = {
-            if (newer && release != null) {
-                TextButton(onClick = {
-                    val url = release.apkUrl ?: release.pageUrl
-                    browserError = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.isFailure
-                }) { Text(if (release.apkUrl != null) "Download update" else "View release") }
-            } else TextButton(onClick = onCheck, enabled = !state.checking) { Text("Check again") }
+            if (newer) {
+                Button(onClick = {
+                    browserError = runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.apkUrl ?: release.pageUrl))) }.isFailure
+                }, shape = RoundedCornerShape(14.dp)) { Text(if (release.apkUrl != null) "Update app" else "View release") }
+            } else Button(onClick = onCheck, enabled = !state.checking, shape = RoundedCornerShape(14.dp)) {
+                Text(if (state.checking) "Checking…" else "Check for updates")
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(if (newer) "Later" else "Close") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(if (newer) "Maybe later" else "Done") } },
     )
 }

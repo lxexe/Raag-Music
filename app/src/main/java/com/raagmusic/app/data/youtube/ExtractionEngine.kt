@@ -2,6 +2,8 @@ package com.raagmusic.app.data.youtube
 
 /** Blocking extractor boundary. The repository owns dispatching and cancellation. */
 interface ExtractionEngine {
+    fun onPlaybackRateLimited(): Long? = null
+    fun onConnectionChanged() { }
     fun onAudioStreamRejected(trackId: String) { }
     fun onStreamRejected(trackId: String, url: String?) { onAudioStreamRejected(trackId) }
     fun onPlaybackRetry(trackId: String) { }

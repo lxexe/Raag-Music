@@ -19,9 +19,9 @@ A native Android music player built with Kotlin, Jetpack Compose and Media3.
 - Favorites, playlists, local audio import, backups and supported offline downloads.
 - On-device listening history and Library Insights, with recording controls.
 - Light, dark and AMOLED appearance, widgets and Android Auto browsing.
-- Daily GitHub update checks, a manual Settings check and in-app release notes.
+- Morning/evening GitHub update checks, update alerts and in-app release notes.
 
-Provider availability can change. Playback, lyrics and downloads depend on the source, network and content restrictions. Cloud sync, account login, casting and push notifications are not implemented. Update checks run about once a day when online; Android chooses background timing. APK downloads open in your browser and require manual installation.
+Provider availability can change. Playback, lyrics and downloads depend on the source, network and content restrictions. Cloud sync, account login, casting and push notifications are not implemented. Update checks use morning/evening windows; Android may defer background work. New releases appear in an in-app message and dialog, with notifications when allowed. APK downloads open in your browser and require manual installation.
 
 ## Build
 

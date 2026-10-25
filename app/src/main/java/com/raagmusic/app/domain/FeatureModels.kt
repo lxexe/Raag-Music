@@ -36,7 +36,7 @@ data class QueueSnapshot(
         positionMs = positionMs.coerceAtLeast(0), repeat = repeat.takeIf { it in 0..2 } ?: 0)
 }
 data class ListenRecord(val trackId: String, val day: String, val milliseconds: Long = 0,
-    val plays: Int = 0, val skips: Int = 0)
+    val plays: Int = 0, val skips: Int = 0, val completions: Int = 0)
 data class FeatureState(
     val preferences: ListeningPreferences = ListeningPreferences(),
     val queue: QueueSnapshot = QueueSnapshot(),
@@ -48,12 +48,12 @@ data class FeatureState(
     val sleepTimer: SleepTimerSpec = SleepTimerSpec(),
     val experience: ExperiencePreferences = ExperiencePreferences(),
 ) {
-    fun record(id: String, day: LocalDate, ms: Long = 0, plays: Int = 0, skips: Int = 0): FeatureState {
+    fun record(id: String, day: LocalDate, ms: Long = 0, plays: Int = 0, skips: Int = 0, completions: Int = 0): FeatureState {
         if (!preferences.analyticsEnabled) return this
         val key = day.toString()
         val existing = history.find { it.trackId == id && it.day == key } ?: ListenRecord(id, key)
         val updated = existing.copy(milliseconds = existing.milliseconds + ms.coerceAtLeast(0),
-            plays = existing.plays + plays.coerceAtLeast(0), skips = existing.skips + skips.coerceAtLeast(0))
+            plays = existing.plays + plays.coerceAtLeast(0), skips = existing.skips + skips.coerceAtLeast(0), completions = existing.completions + completions.coerceAtLeast(0))
         return copy(history = (history.filterNot { it.trackId == id && it.day == key } + updated)
             .takeLast(20_000))
     }

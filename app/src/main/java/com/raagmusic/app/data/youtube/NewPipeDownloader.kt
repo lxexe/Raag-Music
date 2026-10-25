@@ -53,7 +53,9 @@ class NewPipeDownloader(
                 try {
                     result.set(runCatching {
                         response.use {
-                            if (it.code == 429 || it.request.url.host == "consent.youtube.com" ||
+                            if (it.code == 429) throw YoutubeRateLimitedException(
+                                (it.header("Retry-After")?.toLongOrNull() ?: 60).coerceIn(30, 300) * 1000)
+                            if (it.request.url.host == "consent.youtube.com" ||
                                 it.request.url.host == "www.google.com" && it.request.url.encodedPath.startsWith("/sorry")) {
                                 throw ReCaptchaException("YouTube requires verification. Try again later.", request.url())
                             }

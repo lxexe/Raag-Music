@@ -44,7 +44,7 @@ class MusicViewModel(private val app: RaagApplication,
             historyTimeline(library, analytics))
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, LibraryInsights())
     private val rankingSignals = analytics.map { state -> state.copy(history = state.history.map {
-        it.copy(milliseconds = it.milliseconds / 60_000 * 60_000)
+        it.copy(milliseconds = it.milliseconds / 30_000 * 30_000)
     }) }.distinctUntilChanged().flowOn(Dispatchers.Default)
     private val mixCandidates = MutableStateFlow<List<Track>>(emptyList())
     private val mutableMixLoading = MutableStateFlow(false)
@@ -90,6 +90,8 @@ class MusicViewModel(private val app: RaagApplication,
     val searchQuery = mutableSearchQuery.asStateFlow()
     private val mutableSearchResults = MutableStateFlow<List<Track>>(emptyList())
     val searchResults = mutableSearchResults.asStateFlow()
+    private val mutableLibrarySearchResults = MutableStateFlow<List<Track>>(emptyList())
+    val librarySearchResults = mutableLibrarySearchResults.asStateFlow()
     private val mutableSearchSuggestions = MutableStateFlow<List<String>>(emptyList())
     val searchSuggestions = mutableSearchSuggestions.asStateFlow()
     private val mutableSearchOrder = MutableStateFlow<List<String>>(emptyList())
@@ -115,10 +117,8 @@ class MusicViewModel(private val app: RaagApplication,
         viewModelScope.launch { app.updates.check(manual = true) }
     }
     internal fun dismissUpdate() {
-        viewModelScope.launch {
-            app.updates.dismiss()
-            mutableUpdateDialog.value = false
-        }
+        mutableUpdateDialog.value = false
+        viewModelScope.launch { app.updates.dismiss() }
     }
     private val mutableSearchArtists = MutableStateFlow<List<com.raagmusic.app.data.youtube.ArtistProfile>>(emptyList())
     val searchArtists = mutableSearchArtists.asStateFlow()
@@ -157,7 +157,7 @@ class MusicViewModel(private val app: RaagApplication,
     private var searchGeneration = 0L
     private var searchPageJob: Job? = null
     private var searchCursor: com.raagmusic.app.data.youtube.SearchCursor? = null
-    private val searchCursorsSeen = mutableSetOf<String>()
+    private val searchPageProgress = SearchPageProgress()
     private val mutableSearchMore = MutableStateFlow(false)
     val searchMore = mutableSearchMore.asStateFlow()
     private val mutableSearchPageLoading = MutableStateFlow(false)
@@ -195,10 +195,11 @@ class MusicViewModel(private val app: RaagApplication,
     private val homeSnapshot = com.raagmusic.app.data.HomeSnapshotStore(java.io.File(app.cacheDir, "home-discovery-v2.json"))
     private var homeRefreshRevision = 0
     private var refreshHomeShelves = false
-    // Commit a ranked batch once. Loading other shelves or a playback tick must not reshuffle it.
-    val quickPicks = combine(homeSongs, features.map { it.lessLikeIds }.distinctUntilChanged()) { home, blocked ->
-        home.copy(items = home.items.filterNot { it.id in blocked }.take(20))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ContentState(loading = true))
+    private val quickRanking = MutableStateFlow(Triple(emptySet<String>(), emptySet<String>(), 0))
+    val quickPicks = combine(homeSongs, library, rankingSignals, quickRanking) { home, saved, feedback, ranking ->
+        val familiar = if (homeMood.equals("For you", true)) positiveRecommendationTracks(saved, feedback) else emptyList()
+        home.copy(items = rankQuickPicks(home.items + familiar, saved, feedback, relatedIds = ranking.first, previousIds = ranking.second, variation = ranking.third))
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ContentState(loading = true))
     private val mutablePlayerSuggestions = MutableStateFlow(ContentState<Track>())
     val playerSuggestions = mutablePlayerSuggestions.asStateFlow()
     private var suggestionsTrackId: String? = null
@@ -404,7 +405,14 @@ class MusicViewModel(private val app: RaagApplication,
         catch (e: CancellationException) { throw e }
         catch (_: Exception) { mutableMessages.emit("Couldn't save your listening preferences. Please try again.") }
     } }
-    fun lessLike(track: Track) = editFeatures({ it.copy(lessLikeIds = it.lessLikeIds + track.id) }, "This song will stay out of your daily mixes")
+    fun lessLike(track: Track) { viewModelScope.launch {
+        try {
+            app.library.update { it.copy(savedTracks = rememberTrackMetadata(it.savedTracks, listOf(track))) }
+            app.features.update { it.copy(lessLikeIds = it.lessLikeIds + track.id) }
+            mutableMessages.emit("Removed from your recommendations")
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { mutableMessages.emit("Couldn't save your feedback. Please try again.") }
+    } }
     fun resetFeedback() = editFeatures({ it.copy(lessLikeIds = emptySet()) })
     fun clearHistory() { viewModelScope.launch {
         try {
@@ -646,9 +654,11 @@ class MusicViewModel(private val app: RaagApplication,
         mutableSearchVideos.value = emptyList()
         mutableSearchCollections.value = emptyList()
         mutableSearchResults.value = emptyList()
+        mutableLibrarySearchResults.value = emptyList()
         mutableSearchLoading.value = cleaned.length >= 2
         if (cleaned.length < 2) {
             mutableSearchResults.value = emptyList()
+            mutableLibrarySearchResults.value = emptyList()
             mutableSearchCollections.value = emptyList()
             return
         }
@@ -656,13 +666,18 @@ class MusicViewModel(private val app: RaagApplication,
         searchJob = viewModelScope.launch {
             val local = withContext(Dispatchers.Default) {
                 val tracks = (library.value.savedTracks + allTracks).distinctBy { it.id }
-                val matches = if (kind in listOf("All", "Songs")) rankSearchMatches(
-                    tracks.filter { searchMatchScore(cleaned, it.title, it.artist) > 0 }, cleaned, { it.title }, { it.artist }).take(20) else emptyList()
+                val matches = if (kind in listOf("All", "Library")) rankSearchMatches(
+                    library.value.savedTracks.filter { searchMatchScore(cleaned, it.title, it.artist) > 0 }, cleaned, { it.title }, { it.artist }) else emptyList()
                 matches to rankedSearchSuggestions(cleaned, discoveryPreferences.value.recentSearches, tracks,
                     experience.value.followedArtists)
             }
             if (generation != searchGeneration) return@launch
-            mutableSearchResults.value = local.first
+            mutableLibrarySearchResults.value = local.first
+            if (kind == "Library") {
+                mutableSearchSuggestions.value = local.second
+                mutableSearchLoading.value = false
+                return@launch
+            }
             mutableSearchSuggestions.value = local.second
             val cached = if (force) null else youtube.cachedSearchPage(cleaned, kind)
             if (cached != null) {
@@ -674,7 +689,7 @@ class MusicViewModel(private val app: RaagApplication,
                 mutableSearchArtists.value = cached.artists
                 mutableSearchCollections.value = cached.collections
                 searchCursor = cached.next
-                mutableSearchMore.value = cached.next != null
+                mutableSearchMore.value = kind != "All" && cached.next != null
                 mutableSearchLoading.value = false
             }
             delay(160)
@@ -701,7 +716,7 @@ class MusicViewModel(private val app: RaagApplication,
                     mutableSearchArtists.value = rankSearchMatches(page.artists, cleaned, { it.name })
                     mutableSearchCollections.value = rankSearchMatches(page.collections, cleaned, { it.title }, { it.artist })
                     searchCursor = page.next
-                    mutableSearchMore.value = page.next != null
+                    mutableSearchMore.value = kind != "All" && page.next != null
                 }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { if (generation == searchGeneration) mutableSearchError.value = e.message ?: "Search failed. Try again." }
@@ -744,13 +759,14 @@ class MusicViewModel(private val app: RaagApplication,
         searchGroupJobs.clear(); completedSearchGroups.clear()
         searchPageJob?.cancel()
         searchCursor = null
-        searchCursorsSeen.clear()
+        searchPageProgress.reset()
         mutableSearchMore.value = false
         mutableSearchPageLoading.value = false
         mutableSearchPageError.value = null
     }
 
     fun loadMoreSearch() {
+        if (mutableSearchKind.value in setOf("All", "Library")) return
         val cursor = searchCursor ?: return
         if (mutableSearchLoading.value || mutableSearchPageLoading.value) return
         val generation = searchGeneration
@@ -768,8 +784,9 @@ class MusicViewModel(private val app: RaagApplication,
                 mutableSearchResults.value = (mutableSearchResults.value + page.tracks.map { it.toLibraryTrack() }).distinctBy { it.id }
                 mutableSearchArtists.value = (mutableSearchArtists.value + page.artists).distinctBy { it.channelUrl }
                 mutableSearchCollections.value = (mutableSearchCollections.value + page.collections).distinctBy { "${it.kind}:${it.id}" }
-                searchCursorsSeen += cursor.fingerprint
-                searchCursor = page.next?.takeIf { addsResults }?.takeUnless { it.fingerprint in searchCursorsSeen }
+                searchCursor = page.next?.takeIf {
+                    searchPageProgress.next(cursor.fingerprint, it.fingerprint, addsResults)
+                }
                 mutableSearchMore.value = searchCursor != null
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { if (generation == searchGeneration) mutableSearchPageError.value = e.message ?: "Couldn't load more results." }
@@ -789,6 +806,7 @@ class MusicViewModel(private val app: RaagApplication,
         mutableSearchArtists.value = emptyList()
         mutableSearchVideos.value = emptyList()
         mutableSearchResults.value = emptyList()
+        mutableLibrarySearchResults.value = emptyList()
         mutableSearchCollections.value = emptyList()
         mutableSearchError.value = null
         mutableSearchLoading.value = false
@@ -798,6 +816,12 @@ class MusicViewModel(private val app: RaagApplication,
         if (searchLoading.value || searchVideos.value.none { it.id == track.id }) return
         rememberSearch()
         play(track, recommendationChain = true)
+    }
+
+    fun playLibrarySearchResult(track: Track) {
+        if (mutableLibrarySearchResults.value.none { it.id == track.id }) return
+        rememberSearch()
+        play(track, listOf(track), ordered = true, recommendationChain = true)
     }
 
     fun playSearchResult(track: Track) {
@@ -829,6 +853,7 @@ class MusicViewModel(private val app: RaagApplication,
     fun changeSearchKind(kind: String) {
         if (kind == mutableSearchKind.value) return
         mutableSearchResults.value = emptyList()
+        mutableLibrarySearchResults.value = emptyList()
         mutableSearchCollections.value = emptyList()
         mutableSearchArtists.value = emptyList()
         mutableSearchVideos.value = emptyList()
@@ -898,7 +923,7 @@ class MusicViewModel(private val app: RaagApplication,
                 val feedback = app.features.state.first()
                 val seeds = withContext(Dispatchers.Default) { quickPickSeeds(saved, feedback) }
                 val preferred = withContext(Dispatchers.Default) { preferredArtists(saved, feedback) }
-                val taste = (preferred + seeds.map { it.id } + saved.favorites.sorted() + feedback.lessLikeIds.sorted()).joinToString("|").hashCode().toString()
+                val taste = recommendationTasteKey(saved, feedback)
                 val settings = feedback.discovery
                 val region = settings.countryOverride?.let { MusicRegion(it, CountrySource.MANUAL) }
                     ?: withContext(Dispatchers.IO) { com.raagmusic.app.data.DeviceCountryResolver.detect(app) }
@@ -920,23 +945,15 @@ class MusicViewModel(private val app: RaagApplication,
                     }
                 }
                 if (mutableHomeSongs.value.items.isEmpty() && mood.equals("For you", true)) {
-                    val local = withContext(Dispatchers.Default) { rankRecommendations(saved.savedTracks,
-                        null, saved, feedback, limit = 20) }
+                    val local = withContext(Dispatchers.Default) { rankQuickPicks(positiveRecommendationTracks(saved, feedback), saved, feedback, limit = 20) }
                     if (local.isNotEmpty()) mutableHomeSongs.value = ContentState(local, loading = true)
                 }
                 withContext(Dispatchers.IO) { youtube.setCountry(region.providerCode) }
                 val queries = homeQueries(region, mood, LocalDate.now())
-                val savedById = withContext(Dispatchers.Default) { saved.savedTracks.associateBy { it.id } }
-                val recentArtist = saved.recentIds.firstNotNullOfOrNull { id ->
-                    savedById[id]?.takeIf { it.source == Source.YOUTUBE }?.artist
-                }
-                val retrievalArtists = (preferred + feedback.experience.followedArtists.sorted())
-                    .distinct().ifEmpty { listOfNotNull(recentArtist) }
+                val retrievalArtists = (preferred + feedback.experience.followedArtists.sorted()).distinct()
                 val personalCandidates = if (mood.equals("For you", true)) withContext(Dispatchers.Default) {
-                    val positiveIds = saved.favorites + feedback.history.filter { it.milliseconds >= 30_000 }.map { it.trackId }
-                    val familiar = saved.savedTracks.filter { it.id in positiveIds && it.id !in feedback.lessLikeIds }.takeLast(40)
-                    val related = familiar.filter { it.source == Source.YOUTUBE }.takeLast(3)
-                        .flatMap { youtube.cachedRelatedSongs(it.id) }.map { it.toLibraryTrack() }
+                    val familiar = positiveRecommendationTracks(saved, feedback).takeLast(40)
+                    val related = seeds.flatMap { youtube.cachedRelatedSongs(it.id) }.map { it.toLibraryTrack() }
                     (related + familiar).distinctBy { it.id }
                 } else emptyList()
                 val timeQuery = timeOfDayMusicQuery(region, java.time.LocalDateTime.now().hour)
@@ -957,9 +974,9 @@ class MusicViewModel(private val app: RaagApplication,
                     }
                 }.distinct()
                 val previous = if (refresh && !changed) mutableHomeSongs.value.items.map { it.id }.toSet() else emptySet()
+                val relatedIds = mutableSetOf<String>()
                 val loaded = homeContent(mutableHomeSongs.value) {
                     val candidates = mutableListOf<Track>()
-                    val relatedIds = mutableSetOf<String>()
                     var failure: Exception? = null
                     // The overall budget includes lock waits, retries and continuation requests.
                     // Keep partial results if a later source is slow.
@@ -1016,11 +1033,12 @@ class MusicViewModel(private val app: RaagApplication,
                     }
                     val now = LocalDateTime.now()
                     withContext(Dispatchers.Default) {
-                        rankRecommendations(candidates + personalCandidates, null, saved, feedback, now.toLocalDate(), now.hour,
-                            relatedIds = relatedIds, limit = 20, previousIds = previous, variation = revision)
+                        rankQuickPicks(candidates + personalCandidates, saved, feedback, now.toLocalDate(), now.hour,
+                            relatedIds = relatedIds, limit = 40, previousIds = previous, variation = revision)
                     }
                 }
                 if (homeGeneration != generation) return@launch
+                quickRanking.value = Triple(relatedIds, previous, revision)
                 mutableHomeSongs.value = loaded
                 // End the refresh as soon as this single batch is ready, before lower shelves load.
                 mutableHomeRefreshing.value = false

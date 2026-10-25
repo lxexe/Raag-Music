@@ -30,6 +30,7 @@ data class PlaybackState(
     val audioMimeType: String? = null, val sampleRate: Int? = null,
     val metadataTrack: Track? = null,
     val hasVideo: Boolean = false, val videoDecoding: Boolean = false, val videoWidth: Int = 0, val videoHeight: Int = 0,
+    val failure: PlaybackFailure? = null,
 )
 
 @UnstableApi
@@ -81,7 +82,7 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) : Pl
         val index = selectedQueue.indexOfFirst { it.id == track.id }
         // Selection updates the UI before the service persists/normalizes the media request.
         mutable.value = mutable.value.copy(trackId = track.id, playing = false, position = startPosition.coerceAtLeast(0),
-            duration = track.durationSeconds * 1000, buffering = true, playWhenReady = true, error = null,
+            duration = track.durationSeconds * 1000, buffering = true, playWhenReady = true, error = null, failure = null,
             queueIds = selectedQueue.map { it.id }, queueIndex = index, nextIndex = if (index < selectedQueue.lastIndex) index + 1 else -1,
             upcomingIndices = (index + 1 until selectedQueue.size).toList(), bufferedPosition = 0, bitrate = null,
             audioMimeType = null, sampleRate = null,
@@ -207,16 +208,23 @@ class PlayerConnection(context: Context, private val scope: CoroutineScope) : Pl
                 metadataItem = p.currentMediaItem
                 cachedMetadata = metadataItem?.asTrack()
             }
+            val failure = p.playerError?.let { error ->
+                val extra = p.sessionExtras
+                val kind = extra.getString("failureKind")?.let { runCatching { PlaybackFailureKind.valueOf(it) }.getOrNull() }
+                if (extra.getString("failureTrackId") == p.currentMediaItem?.mediaId && kind != null)
+                    PlaybackFailure(kind, extra.getString("failureTitle").orEmpty(), extra.getString("failureMessage").orEmpty(),
+                        extra.getLong("failureRetryAt").takeIf { it > 0 }) else playbackFailure(error)
+            }
             mutable.value = PlaybackState(p.currentMediaItem?.mediaId, p.isPlaying, p.currentPosition,
                 p.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0) ?: 0,
                 p.playbackState == Player.STATE_BUFFERING || (p.playbackState == Player.STATE_IDLE && p.playWhenReady && p.mediaItemCount > 0), p.shuffleModeEnabled, p.repeatMode,
                 cachedQueueIds,
-                p.playerError?.let(::playbackErrorMessage),
+                failure?.message,
                 p.sessionExtras.takeIf { it.getString("bitrateTrackId") == p.currentMediaItem?.mediaId }?.getInt("bitrate")?.takeIf { it > 0 }
                     ?: audioFormat?.bitrate?.takeIf { it > 0 }, p.sessionExtras.takeIf { it.containsKey("eqAvailable") }?.getBoolean("eqAvailable"), p.sessionExtras.getString("eqStatus"), p.sessionExtras.getBoolean(RECOMMENDATION_CHAIN), p.sessionExtras.getBoolean("recommendationLoading"), p.sessionExtras.getString("recommendationError"), p.nextMediaItemIndex, p.sessionExtras.getLong("sleepRemainingMs"),
                 p.sessionExtras.getBoolean("sleepEndOfTrack"), p.sessionExtras.getLong("sleepDeadlineEpochMs"), p.bufferedPosition.coerceAtLeast(0), p.playWhenReady, p.currentMediaItemIndex, cachedUpcoming,
                 audioMimeType = audioFormat?.sampleMimeType, sampleRate = audioFormat?.sampleRate?.takeIf { it > 0 },
-                metadataTrack = cachedMetadata, hasVideo = p.currentTracks.groups.any { it.type == C.TRACK_TYPE_VIDEO },
+                failure = failure, metadataTrack = cachedMetadata, hasVideo = p.currentTracks.groups.any { it.type == C.TRACK_TYPE_VIDEO },
                 videoDecoding = p.currentTracks.groups.any { it.type == C.TRACK_TYPE_VIDEO && it.isSelected },
                 videoWidth = p.videoSize.width, videoHeight = p.videoSize.height)
         }

@@ -23,6 +23,17 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
     private val rejectedStreams = RejectedStreams()
     private val resetSession = java.util.concurrent.atomic.AtomicBoolean(false)
     private val audioPlayer = AudioPlayerClient(sessionDirectory)
+    private val failureGate = ProviderFailureGate()
+    private val newConnection = java.util.concurrent.atomic.AtomicBoolean(false)
+    override fun onPlaybackRateLimited(): Long { resetSession.set(true); return failureGate.rateLimit(60_000) }
+    override fun onConnectionChanged() { newConnection.set(true) }
+    private fun <T> withPlaybackErrors(block: () -> T): T {
+        if (newConnection.getAndSet(false)) { failureGate.clear(); resetSession.set(true) }
+        failureGate.check()
+        return try { withProviderErrors(block) }
+        catch (error: YoutubeVerificationRequiredException) { resetSession.set(true); failureGate.block(error) }
+        catch (error: YoutubeRateLimitedException) { resetSession.set(true); failureGate.block(error) }
+    }
     override fun onAudioStreamRejected(trackId: String) {
         resetSession.set(true)
     }
@@ -276,7 +287,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
 
     override fun audioStreamUrl(trackId: String, maxBitrate: Int): String = audioStream(trackId, maxBitrate).url
 
-    override fun audioStream(trackId: String, maxBitrate: Int): ResolvedAudioStream = withProviderErrors {
+    override fun audioStream(trackId: String, maxBitrate: Int): ResolvedAudioStream = withPlaybackErrors {
         YoutubeTrackIds.requireValid(trackId)
         if (resetSession.getAndSet(false)) audioPlayer.reset()
         if (fastAudio) try {
@@ -291,7 +302,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
                 val decoded = org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
                     .getUrlWithThrottlingParameterDeobfuscated(trackId, stream.url)
                 com.raagmusic.app.playback.PlaybackTrace.mark(trackId, "audio_only_resolved")
-                return@withProviderErrors stream.copy(url = decoded)
+                return@withPlaybackErrors stream.copy(url = decoded)
             }
         } catch (e: Exception) {
             if (Thread.currentThread().isInterrupted) throw e
@@ -316,7 +327,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
             mimeType = if (stream.format == MediaFormat.M4A) "audio/mp4" else "audio/webm")
     }
 
-    override fun videoStream(trackId: String, maxHeight: Int): ResolvedAudioStream = withProviderErrors {
+    override fun videoStream(trackId: String, maxHeight: Int): ResolvedAudioStream = withPlaybackErrors {
         YoutubeTrackIds.requireValid(trackId)
         if (resetSession.getAndSet(false)) audioPlayer.reset()
         if (fastAudio) try {
@@ -326,7 +337,7 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
                 val decoded = org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
                     .getUrlWithThrottlingParameterDeobfuscated(trackId, stream.url)
                 com.raagmusic.app.playback.PlaybackTrace.mark(trackId, "native_video_resolved")
-                return@withProviderErrors stream.copy(url = decoded)
+                return@withPlaybackErrors stream.copy(url = decoded)
             }
         } catch (e: Exception) {
             if (Thread.currentThread().isInterrupted) throw e
@@ -351,12 +362,16 @@ class NewPipeExtractionEngine(private val fastAudio: Boolean = true, sessionDire
 
     private fun <T> withProviderErrors(block: () -> T): T = try {
         block()
-    } catch (e: ReCaptchaException) {
-        throw YoutubeVerificationRequiredException(e)
-    } catch (e: SignInConfirmNotBotException) {
-        throw YoutubeVerificationRequiredException(e)
-    } catch (e: ContentNotAvailableException) {
-        throw YoutubeExtractionException("This track is unavailable in your region or requires account access.", e)
+    } catch (error: Exception) {
+        val causes = generateSequence<Throwable>(error) { it.cause }.take(16).toList()
+        causes.filterIsInstance<YoutubeRateLimitedException>().firstOrNull()?.let { throw it }
+        causes.filterIsInstance<YoutubeVerificationRequiredException>().firstOrNull()?.let { throw it }
+        causes.firstOrNull { it is ReCaptchaException || it is SignInConfirmNotBotException }?.let {
+            throw YoutubeVerificationRequiredException(it)
+        }
+        if (causes.any { it is ContentNotAvailableException })
+            throw YoutubeExtractionException("This track is unavailable in your region or requires account access.", error)
+        throw error
     }
 
     private object Runtime {

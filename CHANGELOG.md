@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.24.10 — playback recovery and personal Quick Picks
+
+- Show clear playback failure cards with retry controls and an Open in YouTube action.
+- Pause stream requests after connection verification or rate limits, with a retry countdown and recovery after switching networks.
+- Keep bounded retries for temporary failures while preserving the queue and playback position.
+- Improve Quick Picks using local likes, actual listening, completed plays, early skips and Not interested feedback.
+- Leave room for relevant new music, avoid blocked upload aliases, and refresh recommendations when meaningful feedback changes.
+- Keep completion and skip signals on the device; failed playback does not count as a disliked song.
+
+## 1.24.9 — clearer search and update alerts
+
+- Group All search results into small previews for songs, artists, albums, playlists, videos and your library.
+- Open full category results with See all and keep loading available pages as you scroll.
+- Refresh the update dialog, add a compact in-app update message and send update alerts when notifications are allowed.
+- Improve background update detection and notification controls.
+- Add bottom breathing room to Settings so its final actions remain fully visible.
+
 ## 1.24.8 — playback session recovery
 
 - Refresh a rejected in-memory playback session once, matching recovery after an app restart.

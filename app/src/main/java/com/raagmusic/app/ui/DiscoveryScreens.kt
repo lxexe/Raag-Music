@@ -110,6 +110,7 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
     }
     val query by vm.searchQuery.collectAsStateWithLifecycle()
     val results by vm.searchResults.collectAsStateWithLifecycle()
+    val libraryResults by vm.librarySearchResults.collectAsStateWithLifecycle()
     val suggestions by vm.searchSuggestions.collectAsStateWithLifecycle()
     val providerOrder by vm.searchOrder.collectAsStateWithLifecycle()
     val loading by vm.searchLoading.collectAsStateWithLifecycle()
@@ -141,12 +142,11 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
             suggestions
                 .filterNot { it.equals(query.trim(), true) }.distinctBy { it.lowercase(java.util.Locale.ROOT) }.take(4)
     }
-    val entries = remember(query, kind, results, videos, artistResults, collections, editing, matchingSuggestions, providerOrder) {
-        rankedSearchEntries(query, if (kind == "Videos") emptyList() else results,
-            if (kind == "Videos") results else videos, artistResults, collections,
-            if (editing) matchingSuggestions else emptyList(), providerOrder)
+    val groups = remember(query, kind, results, videos, artistResults, collections, libraryResults, providerOrder) {
+        groupedSearchResults(query, kind, if (kind == "Videos") emptyList() else results,
+            if (kind == "Videos") results else videos, artistResults, collections, libraryResults, providerOrder)
     }
-    val hasMatches = results.isNotEmpty() || artistResults.isNotEmpty() || collections.isNotEmpty() || videos.isNotEmpty()
+    val hasMatches = groups.any { it.entries.isNotEmpty() }
     Column(Modifier.fillMaxSize()) {
         MusicSearchField(
             query, vm::search, "Search music",
@@ -168,7 +168,7 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
             },
         )
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(listOf("All", "Songs", "Videos", "Artists", "Albums", "Playlists")) { choice ->
+            items(listOf("All", "Songs", "Artists", "Albums", "Playlists", "Videos", "Library")) { choice ->
                 FilterChip(selected = kind == choice, onClick = { focus.clearFocus(); keyboard?.hide(); vm.changeSearchKind(choice) }, label = { Text(choice, fontSize = 12.sp, fontWeight = FontWeight.Medium) },
                     shape = RoundedCornerShape(10.dp), border = null,
                     colors = FilterChipDefaults.filterChipColors(containerColor = Glass, labelColor = ContentColor,
@@ -182,13 +182,13 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
         val list = rememberLazyListState()
         val searchKey = query.trim().lowercase(java.util.Locale.ROOT)
         LaunchedEffect(searchKey, kind) { list.scrollToItem(0) }
-        val canLoadMore by rememberUpdatedState(more && !loading && !pageLoading && pageError == null)
-        LaunchedEffect(list, searchKey, kind) {
-            snapshotFlow { list.isScrollInProgress && list.layoutInfo.visibleItemsInfo.lastOrNull()?.let {
+        val canLoadMore by rememberUpdatedState(kind !in setOf("All", "Library") && more && !loading && !pageLoading && pageError == null)
+        LaunchedEffect(list, searchKey, kind, more, pageLoading, pageError, loading) {
+            snapshotFlow { list.layoutInfo.visibleItemsInfo.lastOrNull()?.let {
                 it.index >= list.layoutInfo.totalItemsCount - 4
             } == true }
-                .distinctUntilChanged().collect { scrollingNearEnd ->
-                    if (scrollingNearEnd && canLoadMore) vm.loadMoreSearch()
+                .distinctUntilChanged().collect { nearEnd ->
+                    if (nearEnd && canLoadMore) vm.loadMoreSearch()
                 }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
@@ -221,10 +221,26 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
                 else -> {
                     if (error != null) item { SectionFailure(error!!, { vm.search(query, force = true) }) }
                     if (loading && !hasMatches) item { SongSkeletons(5) }
-                    items(entries, key = { it.key }, contentType = { it::class.simpleName ?: "result" }) { entry ->
+                    if (editing && matchingSuggestions.isNotEmpty()) {
+                        item(key = "suggestion-heading") { Text("Search suggestions", color = Muted, style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(vertical = 10.dp)) }
+                        items(matchingSuggestions, key = { "suggestion:$it" }) { suggestion ->
+                            SearchSuggestionRow(suggestion) { complete(suggestion) }
+                        }
+                    }
+                    groups.forEach { group ->
+                        item(key = "heading:${group.kind}") {
+                            Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(group.title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                                if (kind == "All") TextButton(onClick = {
+                                    focus.clearFocus(); keyboard?.hide(); vm.changeSearchKind(group.kind)
+                                }) { Text("See all") }
+                            }
+                        }
+                        items(group.entries, key = { "${group.kind}:${it.key}" }, contentType = { it::class.simpleName ?: "result" }) { entry ->
                         when (entry) {
                             is SearchEntry.Song -> SearchSongRow(entry.track, activeId == entry.track.id, onPlay = {
-                                focus.clearFocus(); keyboard?.hide(); vm.playSearchResult(entry.track)
+                                focus.clearFocus(); keyboard?.hide(); if (group.kind == "Library") vm.playLibrarySearchResult(entry.track) else vm.playSearchResult(entry.track)
                             }, onMore = { onMore(entry.track) })
                             is SearchEntry.Video -> SearchVideoRow(entry.track, true, {
                                 focus.clearFocus(); keyboard?.hide()
@@ -251,9 +267,10 @@ fun MusicSearchScreen(vm: MusicViewModel, onMore: (Track) -> Unit, focusRequest:
                             }
                         }
                     }
-                    if (pageLoading) item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) } }
-                    if (pageError != null) item { SectionFailure(pageError!!, vm::loadMoreSearch) }
-                    else if (more && !pageLoading) item { TextButton(onClick = vm::loadMoreSearch, modifier = Modifier.fillMaxWidth()) { Text("Show more results") } }
+                    }
+                    if (kind !in setOf("All", "Library") && pageLoading) item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp) } }
+                    if (kind !in setOf("All", "Library") && pageError != null) item { SectionFailure(pageError!!, vm::loadMoreSearch) }
+                    else if (kind !in setOf("All", "Library") && more && !pageLoading) item { TextButton(onClick = vm::loadMoreSearch, modifier = Modifier.fillMaxWidth()) { Text("Show more results") } }
                     if (!loading && !hasMatches) item {
                         EmptyState(Icons.Rounded.SearchOff, "No results found", "Try a suggestion above, a song title, or another artist.")
                     }

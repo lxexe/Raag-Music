@@ -125,6 +125,7 @@ fun WidePlayerPane(vm: MusicViewModel, track: Track, modifier: Modifier, onExpan
 private fun WidePlayerTransport(vm: MusicViewModel, track: Track) {
     val state by vm.playback.collectAsStateWithLifecycle()
     val duration = state.duration.takeIf { it > 0 } ?: track.durationSeconds * 1000
+    state.failure?.let { PlaybackFailureCard(it, track, vm.player::toggle) }
     PlaybackTimeline(state.position, duration, state.bufferedPosition, state.buffering,
         interactive = true, onSeek = vm.player::seek)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

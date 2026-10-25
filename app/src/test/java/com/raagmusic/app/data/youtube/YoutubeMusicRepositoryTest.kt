@@ -23,6 +23,16 @@ class YoutubeMusicRepositoryTest {
         assertEquals(1, calls)
     }
 
+    @Test fun rateLimitingDoesNotTriggerRepositoryRetry() = runBlocking {
+        var calls = 0
+        val engine = object : FakeEngine() {
+            override fun audioStreamUrl(trackId: String): String { calls++; throw YoutubeRateLimitedException(120_000) }
+            override fun searchSongs(query: String) = emptyList<Track>()
+        }
+        try { YoutubeMusicRepository(engine).getAudioStreamUrl("5NV6Rdv1a3I"); fail("Expected rate limit") }
+        catch (error: YoutubeRateLimitedException) { assertEquals(120_000L, error.retryAfterMillis) }
+        assertEquals(1, calls)
+    }
     @Test fun allSearchHasAnIndependentCacheFromSongSearch() = runBlocking {
         val engine = Engine(listOf(song))
         val repository = YoutubeMusicRepository(engine)

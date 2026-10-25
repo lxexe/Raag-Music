@@ -1,10 +1,12 @@
 # Raag Music privacy
 
-This document describes version 1.24.7. Update it and the bundled copy when behavior changes.
+This document describes version 1.24.10. Update it and the bundled copy when behavior changes.
 
 ## On-device data
 
 Raag Music stores favorites, playlists, track metadata, queue position, settings, optional profile name, searches, listening history and statistics in app-private storage. Listening Insights are local aggregates, not remote telemetry. Listening analytics and recently played history can be disabled separately in Settings; history can be cleared there.
+
+Quick Picks ranks music locally using likes, recent listening, completed plays (at least 80% actually heard), early skips (under 30 seconds heard) and Not interested feedback. Seeking to the end does not count as completion, and playback failures do not count as skips. Disabling Listening analytics stops recording listening/completion/skip aggregates. Explicit likes and Not interested remain usable separately. These feedback records are not uploaded to Firebase. Fetching recommendations still makes normal provider requests for selected public song IDs or artist searches, as described below.
 
 Artwork, lyrics, discovery metadata and stream data may be cached. Offline downloads stay on the device until removed or the app is uninstalled. Local audio import uses Android's document picker and URI grants. Android automatic app backup is disabled.
 
@@ -18,11 +20,11 @@ Country selection can use network/SIM/device country or a manual setting; GPS/lo
 
 ## App update checks
 
-The app requests the latest published stable release from GitHub about once a day when online, with a catch-up check when the app opens. Settings → Check for updates requests a manual check. Android controls background timing; no exact alarm or new runtime permission prompt is used. A persisted system job survives restarts using the boot-completed permission.
+The app requests the latest published stable release from GitHub in morning and evening windows (around 08:00 and 19:00 local time), with a catch-up check when the app opens if that window has not been checked. Settings → Check for updates requests a manual check. Android controls background timing; no exact alarm or new runtime permission prompt is used. A persisted system job survives restarts using the boot-completed permission.
 
-Requests go to `api.github.com/repos/lxexe/Raag-Music/releases/latest` without a GitHub account, token or installation identifier. GitHub receives normal network information such as your IP address and a generic update-checker user agent. Music, profile, library and listening information are not included. This request is independent of the Firebase reporting switch. The last check time, cached release notes, cache identifier and dismissed version stay in app-private storage. Notes are displayed as text and do not load remote images or run HTML/scripts.
+Requests go to `api.github.com/repos/lxexe/Raag-Music/releases/latest` without a GitHub account, token or installation identifier. GitHub receives normal network information such as your IP address and a generic update-checker user agent. Music, profile, library and listening information are not included. This request is independent of the Firebase reporting switch. The last check time, cached release notes, cache identifier, dismissed version and last notified version stay in app-private storage. Notes are displayed as text and do not load remote images or run HTML/scripts.
 
-An available update is shown inside the app; no push notification service is involved. Download opens the official GitHub APK link (or release page if no APK is attached) in your browser. Your browser handles the download, and Android requires your confirmation to install. The app does not silently download or install updates.
+An available update is shown in an in-app message and modal. The scheduled check can also post a local notification once per new version, if app notifications are allowed. Settings → Update notifications lets you enable or manage these alerts. No push notification service is involved. Tapping the notification opens release notes inside the app. Clock/timezone changes reschedule the morning/evening jobs; exact execution time remains subject to Android restrictions. Download opens the official GitHub APK link (or release page if no APK is attached) in your browser. Your browser handles the download, and Android requires your confirmation to install. The app does not silently download or install updates.
 
 ## Accounts, analytics and sharing
 

@@ -17,10 +17,11 @@ internal data class UpdateState(
     val lastChecked: Long = 0,
     val error: String? = null,
     val dismissedVersion: String? = null,
+    val notifiedVersion: String? = null,
 )
 internal data class SavedUpdate(
     val json: String? = null, val etag: String? = null, val checked: Long = 0,
-    val nextAttempt: Long = 0, val dismissed: String? = null, val manualAfter: Long = 0,
+    val nextAttempt: Long = 0, val dismissed: String? = null, val manualAfter: Long = 0, val notified: String? = null,
 )
 internal interface UpdateStorage {
     fun read(): SavedUpdate
@@ -50,12 +51,12 @@ internal class UpdateRepository(
         saved = withContext(Dispatchers.IO) { storage.read() }
         val release = runCatching { saved.json?.let(::parseRelease) }.getOrNull()
         if (saved.json != null && release == null) saved = saved.copy(json = null, etag = null, checked = 0)
-        mutableState.value = UpdateState(release = release, lastChecked = saved.checked, dismissedVersion = saved.dismissed)
+        mutableState.value = UpdateState(release = release, lastChecked = saved.checked, dismissedVersion = saved.dismissed, notifiedVersion = saved.notified)
         loaded = true
     }
     suspend fun load() = mutex.withLock { loadLocked() }
 
-    /** Serialized across background/manual calls. Manual checks bypass the daily cache, not server backoff. */
+    /** Serialized across background/manual calls. Manual checks bypass the morning/evening cache, not server backoff. */
     suspend fun check(manual: Boolean = false) = mutex.withLock {
         try { loadLocked() }
         catch (error: CancellationException) { throw error }
@@ -69,7 +70,7 @@ internal class UpdateRepository(
             saved = saved.copy(nextAttempt = 0, manualAfter = 0, checked = 0)
         }
         val blockedUntil = if (manual) saved.manualAfter else saved.nextAttempt
-        val recentlyChecked = saved.checked > 0 && now >= saved.checked && now - saved.checked < DAY_MS
+        val recentlyChecked = UpdateWindows.sameWindow(saved.checked, now)
         if (now < blockedUntil || (!manual && recentlyChecked)) {
             if (manual && now < blockedUntil) mutableState.value = mutableState.value.copy(error = "Please wait a little before checking again.")
             return@withLock
@@ -119,4 +120,13 @@ internal class UpdateRepository(
         saved = next
         mutableState.value = mutableState.value.copy(dismissedVersion = next.dismissed)
     }
+    suspend fun markNotified(version: String) = mutex.withLock {
+        val next = saved.copy(notified = version)
+        try { withContext(Dispatchers.IO) { storage.write(next) } }
+        catch (error: CancellationException) { throw error }
+        catch (_: Exception) { return@withLock }
+        saved = next
+        mutableState.value = mutableState.value.copy(notifiedVersion = version)
+    }
+
 }

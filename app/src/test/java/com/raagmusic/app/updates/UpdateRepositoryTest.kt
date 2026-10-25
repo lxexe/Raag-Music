@@ -146,6 +146,31 @@ class UpdateRepositoryTest {
             repo.dismiss()
         }
     }
+    @Test fun automaticChecksRunOncePerMorningAndEveningWindow() = runBlocking {
+        var now = java.time.ZonedDateTime.now().withHour(8).withMinute(0).withSecond(0).withNano(0).toInstant().toEpochMilli()
+        var requests = 0
+        val repo = UpdateRepository(Memory(), { requests++; ReleaseResponse.Found(release(), null) }, { now })
+        repo.check()
+        now += 5 * 60 * 60 * 1000
+        repo.check()
+        assertEquals(1, requests)
+        now += 6 * 60 * 60 * 1000
+        repo.check()
+        assertEquals(2, requests)
+        now += 2 * 60 * 60 * 1000
+        repo.check()
+        assertEquals(2, requests)
+    }
+    @Test fun notificationVersionIsPersistedWithoutDismissingTheModal() = runBlocking {
+        val memory = Memory()
+        val repo = UpdateRepository(memory, { ReleaseResponse.Found(release(), null) })
+        repo.check(); repo.markNotified("1.25.0")
+        assertEquals("1.25.0", memory.saved.notified)
+        assertNull(repo.state.value.dismissedVersion)
+        val restarted = UpdateRepository(memory, { ReleaseResponse.Unchanged })
+        restarted.load()
+        assertEquals("1.25.0", restarted.state.value.notifiedVersion)
+    }
     @Test fun missingPublishedReleaseClearsPreviouslyCachedRelease() = runBlocking {
         val memory = Memory(SavedUpdate(release(), "etag"))
         val repo = UpdateRepository(memory, { ReleaseResponse.NonePublished })

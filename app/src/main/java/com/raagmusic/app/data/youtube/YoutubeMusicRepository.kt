@@ -198,6 +198,8 @@ class YoutubeMusicRepository(
     suspend fun getVideoStream(trackId: String, maxHeight: Int): ResolvedAudioStream = extract(audioMutex) { engine.videoStream(YoutubeTrackIds.requireValid(trackId), maxHeight) }
     fun onAudioStreamRejected(trackId: String, url: String? = null) { engine.onStreamRejected(trackId, url) }
     fun onPlaybackRetry(trackId: String) { engine.onPlaybackRetry(trackId) }
+    fun onPlaybackRateLimited(): Long? = engine.onPlaybackRateLimited()
+    fun onConnectionChanged() { engine.onConnectionChanged() }
 
     fun searchCollections(query: String, kind: CollectionKind, refresh: Boolean = false): Flow<List<BrowseCollection>> = flow {
         val trimmed = query.trim()
@@ -225,7 +227,7 @@ class YoutubeMusicRepository(
         try {
             retryApiOnce(shouldRetry = { error ->
                 generateSequence<Throwable>(error) { it.cause }.take(8).none {
-                    it is YoutubeVerificationRequiredException ||
+                    it is YoutubeVerificationRequiredException || it is YoutubeRateLimitedException ||
                         it is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException ||
                         it is org.schabi.newpipe.extractor.exceptions.ReCaptchaException ||
                         it is org.schabi.newpipe.extractor.exceptions.SignInConfirmNotBotException ||
@@ -243,7 +245,10 @@ class YoutubeMusicRepository(
 
 open class YoutubeExtractionException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
-class YoutubeVerificationRequiredException(cause: Throwable? = null) : YoutubeExtractionException(
+class YoutubeVerificationRequiredException(cause: Throwable? = null, val retryAtEpochMillis: Long? = null) : YoutubeExtractionException(
     "YouTube requires verification on this connection. Try another network, or wait before trying again.", cause)
 
 class AudioUnavailableException : YoutubeExtractionException("No supported audio stream is available for this song.")
+
+class YoutubeRateLimitedException(val retryAfterMillis: Long = 60_000, val retryAtEpochMillis: Long? = null) :
+    YoutubeExtractionException("YouTube is limiting requests. Wait a moment before trying again.")

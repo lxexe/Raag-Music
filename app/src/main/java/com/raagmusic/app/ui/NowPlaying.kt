@@ -108,6 +108,11 @@ private fun NowPlayingContent(vm: MusicViewModel, track: Track, onQueue: () -> U
         LazyColumn(state = list, modifier = Modifier.fillMaxSize().scrollPanelGestures(onClose)
             .then(if ((fullScreenLyrics && lyricsOpen) || fullScreenVideo) Modifier.clearAndSetSemantics { } else Modifier),
             contentPadding = PaddingValues(bottom = 32.dp)) {
+            state.failure?.let { failure ->
+                item(key = "failure") { Box(Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
+                    PlaybackFailureCard(failure, track, vm.player::toggle)
+                } }
+            }
             item(key = "player") {
                 val immersive = appearance.playerStyle == PlayerStyle.IMMERSIVE
                 Box(Modifier.fillMaxWidth().height(viewportHeight)) {

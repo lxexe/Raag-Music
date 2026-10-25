@@ -6,6 +6,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FeatureCodecTest {
+    @Test fun completionSignalsAreOptionalForExistingHistoryAndPersistLocally() {
+        val old = FeatureCodec.decode("""{"history":[{"id":"abcdefghijk","day":"2026-10-25","ms":40000,"plays":1,"skips":0}]}""")
+        assertEquals(0, old.history.single().completions)
+        val updated = old.record("abcdefghijk", java.time.LocalDate.of(2026, 10, 25), completions = 1)
+        assertEquals(updated, FeatureCodec.decode(FeatureCodec.encode(updated)))
+        assertEquals(1, updated.history.single().completions)
+    }
+
     @Test fun analyticsVideoAndStyleChoicesPersistAndUpgradeSafely() {
         val old = FeatureCodec.decode("{}")
         assertTrue(old.preferences.analyticsEnabled)

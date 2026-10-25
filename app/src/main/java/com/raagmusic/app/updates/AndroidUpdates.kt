@@ -18,12 +18,12 @@ internal class PreferenceUpdateStorage(context: Context) : UpdateStorage {
     override fun read() = SavedUpdate(
         preferences.getString("release_json", null), preferences.getString("etag", null),
         preferences.getLong("checked", 0), preferences.getLong("next_attempt", 0), preferences.getString("dismissed", null),
-        preferences.getLong("manual_after", 0),
+        preferences.getLong("manual_after", 0), preferences.getString("notified", null),
     )
     override fun write(value: SavedUpdate) {
         check(preferences.edit().putString("release_json", value.json).putString("etag", value.etag)
             .putLong("checked", value.checked).putLong("next_attempt", value.nextAttempt)
-            .putLong("manual_after", value.manualAfter)
+            .putLong("manual_after", value.manualAfter).putString("notified", value.notified)
             .putString("dismissed", value.dismissed).commit()) { "Couldn't save update check" }
     }
 }
@@ -59,15 +59,34 @@ internal class GitHubReleaseFetcher : ReleaseFetcher {
 
 @UnstableApi
 internal object UpdateSchedule {
-    private const val ID = 72041
-    fun ensure(context: Context) {
+    private const val LEGACY_ID = 72041
+    private const val MORNING_ID = 72042
+    private const val EVENING_ID = 72043
+    fun ensure(context: Context, reset: Boolean = false) {
         val scheduler = context.getSystemService(JobScheduler::class.java)
-        if (scheduler.getPendingJob(ID) != null) return
-        scheduler.schedule(JobInfo.Builder(ID, ComponentName(context, UpdateCheckService::class.java))
-            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-            .setPeriodic(DAY_MS, 6 * 60 * 60 * 1000L)
-            .setPersisted(true)
-            .build())
+        scheduler.cancel(LEGACY_ID)
+        for (id in listOf(MORNING_ID, EVENING_ID)) {
+            if (reset || scheduler.getPendingJob(id) == null) scheduleNext(context, id)
+        }
+    }
+    fun scheduleNext(context: Context, id: Int) {
+        if (id != MORNING_ID && id != EVENING_ID) return
+        val now = java.time.ZonedDateTime.now()
+        val next = UpdateWindows.nextStart(now, id == MORNING_ID)
+        context.getSystemService(JobScheduler::class.java).schedule(
+            JobInfo.Builder(id, ComponentName(context, UpdateCheckService::class.java))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setMinimumLatency(java.time.Duration.between(now, next).toMillis().coerceAtLeast(0))
+                .setPersisted(true).build())
+    }
+}
+
+@UnstableApi
+class UpdateTimeReceiver : android.content.BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: android.content.Intent) {
+        if (intent.action in setOf(android.content.Intent.ACTION_TIME_CHANGED, android.content.Intent.ACTION_TIMEZONE_CHANGED)) {
+            UpdateSchedule.ensure(context, reset = true)
+        }
     }
 }
 
@@ -78,10 +97,15 @@ class UpdateCheckService : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         work = scope.launch {
             try {
-                (application as RaagApplication).updates.check()
+                val repository = (application as RaagApplication).updates
+                repository.check()
+                UpdateNotifications.showIfNew(this@UpdateCheckService, repository)
             } catch (error: CancellationException) { throw error }
             catch (_: Exception) { /* Next scheduled or foreground check can retry. */ }
-            if (isActive) jobFinished(params, false)
+            if (isActive) {
+                jobFinished(params, false)
+                UpdateSchedule.scheduleNext(this@UpdateCheckService, params.jobId)
+            }
         }
         return true
     }

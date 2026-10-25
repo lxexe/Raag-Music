@@ -25,6 +25,8 @@ fun ListeningSettings(vm: MusicViewModel, onAppearance: () -> Unit, onCountry: (
     val library by vm.library.collectAsStateWithLifecycle()
     val busy by vm.backupBusy.collectAsStateWithLifecycle()
     val region by vm.homeRegion.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     var editName by remember { mutableStateOf(false) }
     var analyticsTab by remember { mutableStateOf<Int?>(null) }
     var audio by remember { mutableStateOf(false) }
@@ -34,7 +36,8 @@ fun ListeningSettings(vm: MusicViewModel, onAppearance: () -> Unit, onCountry: (
     ExpandSettingsAtBottom { scroll.value > 0 && !scroll.canScrollForward && scroll.isScrollInProgress }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(vm::exportLibrary) }
     val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { pendingImport = it }
-    Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding().verticalScroll(scroll)
+        .padding(horizontal = 20.dp).padding(top = 20.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         SettingsGroup("General") {
             SettingsAction("Profile", features.profile.displayName.ifBlank { "Add your name" }) { editName = true }
             SettingsAction("Music country", region?.displayName() ?: "Automatic", onClick = onCountry)
@@ -51,7 +54,16 @@ fun ListeningSettings(vm: MusicViewModel, onAppearance: () -> Unit, onCountry: (
             if (audio) Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { AudioSettings(vm, features.preferences) }
         }
         SettingsGroup("Updates") {
-            SettingsAction("Check for updates", "Version ${com.raagmusic.app.BuildConfig.VERSION_NAME} · Checks GitHub daily", onClick = vm::checkForUpdates)
+            SettingsAction("Check for updates", "Raag Music ${com.raagmusic.app.BuildConfig.VERSION_NAME}", onClick = vm::checkForUpdates)
+            SettingsAction("Update notifications", "Alerts for new releases") {
+                if (android.os.Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(
+                        context, android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else runCatching {
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+                }
+            }
         }
         SettingsGroup("Privacy") {
             SettingsAction("Basic usage statistics", "App usage reporting and what is shared") { analyticsTab = 0 }
