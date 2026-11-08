@@ -3,7 +3,8 @@ package com.raagmusic.app.domain
 import java.text.Normalizer
 import java.util.Locale
 
-private val searchMarks = Regex("(?<=\\p{IsLatin})\\p{M}+")
+// The IsLatin script alias requires Android 10; search also runs on Android 8 and 9.
+private val searchMarks = Regex("(?<=\\p{sc=Latin})\\p{M}+")
 private val searchSeparators = Regex("[^\\p{L}\\p{M}\\p{N}]+")
 fun normalizedSearch(text: String): String = Normalizer.normalize(text, Normalizer.Form.NFD)
     .replace(searchMarks, "").lowercase(Locale.ROOT).replace(searchSeparators, " ").trim()
