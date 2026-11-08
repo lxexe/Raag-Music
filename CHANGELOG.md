@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.24.12 — Android 9 search crash fix
+
+- Fix the app closing while typing a song search on Android 8 and 9 by using compatible Unicode matching syntax.
+- Preserve accent-insensitive song matching and Indic vowel marks.
+
 ## 1.24.10 — playback recovery and personal Quick Picks
 
 - Show clear playback failure cards with retry controls and an Open in YouTube action.

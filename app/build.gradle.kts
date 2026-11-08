@@ -19,8 +19,8 @@ android {
         applicationId = "com.raagmusic.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 41
-        versionName = "1.24.10"
+        versionCode = 42
+        versionName = "1.24.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
