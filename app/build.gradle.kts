@@ -50,7 +50,7 @@ android {
 }
 dependencies {
     if (firebaseAnalyticsEnabled) {
-        implementation(platform("com.google.firebase:firebase-bom:34.4.0"))
+        implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
         implementation("com.google.firebase:firebase-analytics")
     }
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
